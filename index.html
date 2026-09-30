@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kliff &amp; Chao — March 5, 2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Pacifico&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<style>
+  /* ============================================================
+     Design tokens — decoded from website.pdf
+     canvas 854.55 x 468.45 ; 1 unit = 0.21347vh
+     ============================================================ */
+  :root{
+    --olive:#2A4300;
+    --field:#E5E5E5;
+    --scrim:rgba(0,0,0,.40);
+    --muted:rgba(0,0,0,.50);
+    --nav-fs:clamp(9px,1.15vh,13px);
+    --nav-ls:.22em;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:auto}
+  body{
+    font-family:Montserrat,system-ui,sans-serif;
+    background:#000;color:#fff;overflow-x:hidden;
+  }
+  img,video{display:block;width:100%;height:100%;object-fit:cover}
+  button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  input{font-family:inherit}
+
+  /* ---------- shared chrome ---------- */
+  /* The SVG is injected inline (see bootLogos) and its paths use
+     `fill:currentColor`, so one file serves both the dark sections and the
+     light wedding panel. Inlining avoids depending on mask-image support. */
+  .logo{display:block;line-height:0}
+  .logo svg{width:100%;height:auto;display:block;fill:currentColor}
+  /* Colour follows the section: white over the dark intro/journey, near-black
+     on the cream wedding panel. Driven by setSec(); the svg inherits via
+     `fill:currentColor`. The shadow only helps over photos, so it is dropped
+     on the light panel. */
+  .brand{
+    position:fixed;left:3.2vw;top:3.4vh;z-index:60;
+    width:clamp(52px,8vh,84px);
+    transition:color .35s ease, filter .35s ease;
+    filter:drop-shadow(0 1px 6px rgba(0,0,0,.45));
+  }
+  body.on-light .brand{filter:none}
+  .rsvp-pill{
+    position:fixed;right:3.2vw;top:4.0vh;z-index:60;
+    background:var(--olive);color:#fff;border-radius:999px;
+    padding:1.45vh 3.4vh;font-weight:600;letter-spacing:.18em;
+    font-size:clamp(11px,1.5vh,16px);
+    box-shadow:0 4px 18px rgba(0,0,0,.28);
+    transition:transform .18s ease, filter .18s ease;
+  }
+  .rsvp-pill:hover{transform:translateY(-2px);filter:brightness(1.18)}
+
+  /* three-dot stepper nav */
+  .secnav{
+    position:fixed;left:50%;transform:translateX(-50%);z-index:60;
+    bottom:5.2vh;display:flex;flex-direction:column;align-items:center;gap:1.05vh;
+    transition:opacity .4s ease;
+  }
+  .secnav.top{top:5.6vh;bottom:auto;flex-direction:column-reverse}
+  /* Each item is one equal column holding its own label AND dot, so the two
+     can never drift out of alignment. The rule spans dot-centre to dot-centre
+     (1/6 to 5/6 of the row). */
+  .secnav-items{position:relative;display:flex;width:min(66vw,390px)}
+  .secnav-items button{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:1.15vh;
+    font-size:var(--nav-fs);letter-spacing:var(--nav-ls);font-weight:400;
+    opacity:.72;transition:opacity .25s;
+  }
+  .secnav-items button.on{opacity:1;font-weight:600}
+  .secnav-items .dot{
+    width:5px;height:5px;border-radius:50%;background:currentColor;
+    transition:transform .3s ease;
+  }
+  .secnav-items button.on .dot{transform:scale(1.8)}
+  .secnav-rule{
+    position:absolute;left:16.667%;right:16.667%;bottom:2px;
+    height:1px;background:currentColor;opacity:.5;pointer-events:none;
+  }
+
+  /* audio toggle — bottom left */
+  .audio-btn{
+    position:fixed;left:3.2vw;bottom:5.2vh;z-index:60;
+    display:flex;align-items:flex-end;gap:2.5px;height:16px;padding:6px;
+  }
+  .audio-btn span{
+    width:2.5px;background:currentColor;border-radius:1px;
+    animation:eq .9s ease-in-out infinite alternate;
+  }
+  .audio-btn span:nth-child(1){height:40%;animation-delay:-.4s}
+  .audio-btn span:nth-child(2){height:100%;animation-delay:-.15s}
+  .audio-btn span:nth-child(3){height:62%;animation-delay:-.65s}
+  .audio-btn span:nth-child(4){height:82%;animation-delay:-.3s}
+  @keyframes eq{from{transform:scaleY(.30)}to{transform:scaleY(1)}}
+  .audio-btn.muted span{animation-play-state:paused;transform:scaleY(.22);opacity:.5}
+  .audio-hint{
+    position:fixed;left:calc(3.2vw + 34px);bottom:5.4vh;z-index:60;
+    font-size:10px;letter-spacing:.14em;opacity:0;pointer-events:none;white-space:nowrap;
+  }
+
+  /* ============================================================
+     1 — PASSWORD GATE
+     input & button: 207.1u wide (24.2vw), 28.9u tall (6.17vh)
+     ============================================================ */
+  #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;transition:opacity .9s ease}
+  #gate .bg{position:absolute;inset:0}
+  #gate .bg::after{content:"";position:absolute;inset:0;background:var(--scrim)}
+  #gate .stack{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;width:clamp(260px,24.2vw,470px);transition:opacity .4s ease}
+
+  /* --- ambient motion on the gate: drifting photo, swaying grass, pollen --- */
+  #gate .bg img{animation:gateDrift 42s ease-in-out infinite alternate;transform-origin:52% 62%}
+  @keyframes gateDrift{
+    from{transform:scale(1.05) translate3d(0,0,0)}
+    to  {transform:scale(1.13) translate3d(-1.4%,-1%,0)}
+  }
+  .grass{
+    position:absolute;left:0;right:0;bottom:0;z-index:2;
+    width:100%;height:clamp(90px,17vh,190px);pointer-events:none;
+  }
+  .grass path{
+    fill:rgba(16,28,6,.5);
+    transform-box:fill-box;transform-origin:50% 100%;   /* pivot at each blade's base */
+    animation:sway ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  @keyframes sway{from{transform:rotate(-2.4deg)}to{transform:rotate(2.8deg)}}
+  /* canvas is a replaced element: inset:0 alone leaves it at its intrinsic
+     300x150, so the width/height are required. */
+  .motes{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+  #gate label{
+    font-weight:600;letter-spacing:.34em;font-size:clamp(15px,2.3vh,26px);
+    margin-bottom:3.9vh;
+  }
+  #gate input{
+    width:100%;height:clamp(42px,6.17vh,66px);background:var(--field);
+    border:0;outline:0;padding:0 1.4em;color:#111;
+    letter-spacing:.2em;font-size:clamp(11px,1.5vh,16px);text-align:center;
+  }
+  #gate button{
+    width:100%;height:clamp(42px,6.17vh,66px);background:var(--olive);
+    margin-top:2.35vh;font-weight:600;letter-spacing:.32em;
+    font-size:clamp(11px,1.6vh,17px);
+    box-shadow:0 10px 30px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+    transition:filter .2s, transform .2s, box-shadow .2s;
+  }
+  #gate button:hover{
+    filter:brightness(1.3);transform:translateY(-2px);
+    box-shadow:0 16px 38px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.34);
+  }
+  #gate button:active{transform:translateY(0)}
+  /* sits at the top of the gate, centred — not inside the input stack */
+  #gate .gatelogo{
+    position:absolute;left:50%;top:6vh;transform:translateX(-50%);z-index:3;
+    width:clamp(96px,16vh,164px);
+    color:#fff !important;                 /* always white over the photo */
+    filter:drop-shadow(0 3px 18px rgba(0,0,0,.45));
+  }
+  #gate .gatelogo svg{fill:#fff}
+
+  /* 0-100 loader, shown after a correct password */
+  #loader{
+    position:absolute;inset:0;z-index:4;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:3vh;
+  }
+  #loader.on{display:flex}
+  #loader .lnum{
+    font-weight:300;font-size:clamp(46px,13vh,130px);letter-spacing:.02em;
+    font-variant-numeric:tabular-nums;line-height:1;
+    text-shadow:0 4px 24px rgba(0,0,0,.45);
+  }
+  #loader .lnum sup{font-size:.3em;font-weight:500;vertical-align:super;opacity:.75;margin-left:.15em}
+  #loader .lbar{width:clamp(180px,22vw,340px);height:2px;background:rgba(255,255,255,.28);overflow:hidden}
+  #loader .lbar i{display:block;height:100%;width:0;background:#fff}
+  #loader .lcap{font-size:9.5px;letter-spacing:.34em;opacity:.7}
+  #gate .err{height:0;overflow:hidden;font-size:11px;letter-spacing:.14em;color:#ffb4a8;margin-top:1.4vh;transition:height .2s}
+  #gate .err.show{height:18px}
+  #gate .hint{position:absolute;bottom:4vh;font-size:10px;letter-spacing:.18em;opacity:.45}
+
+  /* ============================================================
+     2 — INTRO
+     ============================================================ */
+  #intro{position:relative;height:100vh;overflow:hidden}
+  #intro .bg{position:absolute;inset:0;overflow:hidden;animation:kb 26s ease-in-out infinite alternate}
+  /* intro-web.mp4 = intro2.mp4 transcoded for web (2051MB -> 11.8MB), trimmed
+     to the 109s of real content (the source has ~54s of black on the end).
+     Footage is text-free and already graded, so the live layers below fully
+     own the lockup and verse. img/intro.jpg is kept as a still fallback. */
+  /* The couple sits left-of-centre in most shots (the man is as far left as 2%
+     at ~16s). On tall/narrow viewports `cover` crops ~20% off each side and cuts
+     him out, so bias the crop window left. No effect on 16:9 screens, where
+     there is no horizontal cropping to begin with. */
+  #intro .bg video{object-position:25% center}
+  #intro .bg::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(to bottom,transparent 46%,rgba(10,14,8,.34) 74%,rgba(8,11,6,.62) 100%);
+  }
+  @keyframes kb{from{transform:scale(1.03)}to{transform:scale(1.11)}}
+
+  /* live layers: lockup bottom-left, verse bottom-right */
+  #intro .plate{
+    position:absolute;inset:0;display:flex;align-items:flex-end;
+    justify-content:space-between;gap:5vw;padding:0 3.4vw 9.5vh;
+  }
+  #intro .lockup{
+    font-family:Pacifico,cursive;line-height:1;text-align:left;
+    text-shadow:0 2px 18px rgba(0,0,0,.34);flex:none;
+  }
+  #intro .lockup b{display:block;font-weight:400;font-size:clamp(26px,6vh,58px)}
+  #intro .lockup em{
+    display:block;font-style:normal;margin:.15em 0 .05em .5em;
+    font-size:clamp(10px,1.9vh,18px);opacity:.92;
+  }
+  .versecol{display:flex;flex-direction:column;align-items:flex-end;gap:.9vh;max-width:min(48vw,540px)}
+  .verse{
+    cursor:pointer;text-align:right;width:100%;
+    font-size:clamp(8.5px,1.22vh,13px);letter-spacing:.115em;line-height:1.95;
+    text-transform:uppercase;font-weight:600;color:#fff;
+    text-shadow:0 2px 14px rgba(0,0,0,.42);
+    transition:opacity .34s ease;padding:.8vh 0;
+  }
+  .verse:hover{opacity:.7}
+  .verse:focus-visible{outline:1px solid rgba(255,255,255,.55);outline-offset:6px}
+  .verse .ref{
+    display:block;margin-top:1.1vh;
+    font-size:clamp(7.5px,1.02vh,11px);letter-spacing:.24em;opacity:.8;
+  }
+  .verse-hint{
+    font-size:8.5px;letter-spacing:.24em;opacity:0;transition:opacity .6s ease;
+    pointer-events:none;text-align:right;
+  }
+  @media (max-width:768px){
+    #intro .plate{flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:3.4vh;padding-bottom:13vh}
+    .versecol{align-items:flex-start;max-width:none}
+    .verse,.verse-hint{text-align:left}
+  }
+  .vidnote{
+    position:absolute;right:3.2vw;bottom:5.2vh;font-size:9px;letter-spacing:.14em;
+    opacity:.4;z-index:5;
+  }
+
+  /* ============================================================
+     3 — JOURNEY : the circular timeline
+     circle r=441.7u=94.29vh ; centre 113.68vh from top ; apex 19.39vh
+     ============================================================ */
+  #journey{position:relative;height:100vh;overflow:hidden;background:#0d0f0a}
+  #journey .jbg{position:absolute;inset:0;opacity:.7;overflow:hidden}
+  #journey .jbg img{animation:gateDrift 52s ease-in-out infinite alternate;transform-origin:48% 58%}
+  #journey .jbg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.82))}
+  /* same ambience as the gate, dialled back so it sits behind the timeline */
+  /* z-index 0, not the base 2 — the wheel and content must stay in front */
+  #journey .grass{height:clamp(70px,13vh,150px);z-index:0}
+  #journey .grass path{fill:rgba(10,20,3,.45)}
+  #journey .motes{z-index:0}
+  .wheel{
+    position:absolute;left:50%;top:113.68vh;
+    width:188.58vh;height:188.58vh;border-radius:50%;
+    border:1px solid rgba(255,255,255,.42);
+    transform:translate(-50%,-50%);will-change:transform;
+  }
+  .mk{position:absolute;left:50%;top:50%;width:0;height:0;cursor:pointer}
+  /* the dot is only 5px — give each marker a real click/tap target */
+  .mk .hit{
+    position:absolute;left:50%;top:50%;width:52px;height:52px;
+    transform:translate(-50%,-50%);border-radius:50%;
+  }
+  .mk .dot{
+    position:absolute;left:50%;top:50%;border-radius:50%;
+    transform:translate(-50%,-50%);background:#fff;
+    width:5px;height:5px;opacity:.5;transition:width .35s,height .35s,opacity .35s;
+  }
+  .mk.on .dot{width:3.27vh;height:3.27vh;opacity:1;box-shadow:0 0 0 6px rgba(255,255,255,.10)}
+  .mk .lbl{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,calc(-50% - 4.4vh));
+    white-space:nowrap;font-size:clamp(8px,1.02vh,11px);letter-spacing:.24em;
+    font-weight:500;opacity:.42;transition:opacity .35s;
+    padding:9px 12px;                       /* the text alone is only ~10px tall */
+  }
+  .mk:hover .lbl{opacity:1}
+  .mk:focus-visible{outline:none}
+  .mk:focus-visible .lbl{opacity:1;text-decoration:underline;text-underline-offset:4px}
+  .mk.on .lbl{opacity:0;pointer-events:none}
+  .jcontent{
+    position:absolute;left:50%;transform:translateX(-50%);
+    top:22.5vh;width:min(86vw,1120px);text-align:center;
+  }
+  .jcontent h2{
+    font-weight:500;letter-spacing:.3em;font-size:clamp(16px,2.85vh,32px);
+    margin-bottom:1vh;
+  }
+  .jcontent .chapno{font-size:clamp(8px,1.02vh,11px);letter-spacing:.34em;opacity:.55;margin-bottom:1.5vh}
+  /* photo centred, copy beneath it */
+  .jrow{display:flex;flex-direction:column;align-items:center;gap:3.4vh;margin-top:3.6vh}
+  .jrow .copy{
+    text-align:center;max-width:clamp(260px,38vw,620px);
+    font-size:clamp(9px,1.32vh,14px);line-height:1.72;letter-spacing:.11em;
+    text-transform:uppercase;opacity:.86;
+  }
+
+  /* --- polaroid photocard deck; read cards stack up behind the current one --- */
+  /* Cards fan out left-to-right and accumulate as you scroll through a
+     chapter, then clear when the chapter changes. All are absolutely
+     positioned, so a hidden in-flow duplicate (.sizer) gives the box height. */
+  .deck{
+    position:relative;width:min(58vw,720px);flex:none;margin-top:4vh;
+    display:flex;justify-content:center;
+    padding-bottom:22px;              /* rotated cards overhang the sizer */
+  }
+  .deck .sizer{visibility:hidden;pointer-events:none}
+  .deck .sizer.card{position:relative;box-shadow:none;transform:none}
+  .deck .card{
+    position:absolute;left:50%;top:0;
+    width:clamp(150px,16.5vw,236px);
+    background:#f6f2e8;
+    /* px, NOT %. The card is absolutely positioned, so percentage padding
+       resolves against .deck's width (720px), not the card's own ~210px —
+       `13%` was silently becoming 94px of dead white. */
+    padding:clamp(6px,.72vw,10px) clamp(6px,.72vw,10px) clamp(7px,.85vw,12px);
+    border-radius:2px;box-shadow:0 12px 30px rgba(0,0,0,.45);
+    transform-origin:50% 60%;cursor:pointer;
+    transition:transform .62s cubic-bezier(.22,.9,.28,1), opacity .42s ease,
+               box-shadow .3s ease;
+    will-change:transform,opacity;
+  }
+  .deck .card.sel{box-shadow:0 20px 46px rgba(0,0,0,.6)}
+  .deck .card:not(.sel):hover{filter:brightness(1.06)}
+  .deck .card .ph{aspect-ratio:4/3;overflow:hidden;background:#cfcabd}
+  .deck .card .ph img{width:100%;height:100%;object-fit:cover}
+  .deck .card figcaption{
+    margin-top:6px;text-align:center;color:#3a4030;line-height:1.25;
+    font-size:clamp(8.5px,1.12vh,12px);letter-spacing:.06em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .jfade{transition:opacity .32s ease}
+  .jarrows{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:12.1vh;
+    display:flex;align-items:center;gap:1.9vh;font-size:11px;opacity:.55;z-index:5;
+  }
+  .jarrows button{letter-spacing:.2em;font-size:9px;transition:opacity .2s}
+  .jarrows button:hover{opacity:1}
+  .jarrows .mark{font-size:13px;opacity:.7}
+  .scrollcue{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:19vh;
+    font-size:9px;letter-spacing:.3em;opacity:.4;animation:bob 2.4s ease-in-out infinite;
+  }
+  @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,6px)}}
+
+  /* ============================================================
+     5-7 — WEDDING
+     ============================================================ */
+  /* Journey and wedding sit side by side; vertical scroll drives the track
+     sideways. Desktop only — mobile falls back to normal stacking below. */
+  #hpin{height:100vh;overflow:hidden}
+  #htrack{display:flex;width:300vw;height:100vh;will-change:transform}
+  #htrack > section{width:100vw;flex:none}
+  #intro,#journey,#wedding{height:100vh}
+  #wedding{overflow-y:auto}
+
+  #wedding{position:relative;background:#fbfaf7;color:#14180d;padding:11vh 0 13vh}
+  #wedding .monogram,#wedding .audio-btn{color:var(--olive)}
+  .tabs{display:flex;flex-direction:column;align-items:center;gap:1.35vh}
+  .tabrow{display:flex;gap:clamp(16px,3.1vw,44px)}
+  .tabrow button{
+    font-size:clamp(9px,1.15vh,13px);letter-spacing:.2em;color:var(--muted);
+    transition:color .25s;padding-bottom:2px;
+  }
+  .tabrow button.on{color:#14180d;font-weight:500}
+  .tabtrack{position:relative;width:min(80vw,760px);height:2px;background:rgba(0,0,0,.18)}
+  .tabtrack .ind{position:absolute;left:0;top:-.5px;height:3px;background:#14180d;transition:transform .42s cubic-bezier(.4,0,.2,1),width .42s cubic-bezier(.4,0,.2,1)}
+  .panel{display:none;margin-top:6vh;text-align:center;padding:0 6vw}
+  .panel.on{display:block;animation:fadeup .5s ease both}
+  @keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  .bigdate{font-weight:600;letter-spacing:.26em;font-size:clamp(20px,3.6vh,40px)}
+  .countdown{display:flex;justify-content:center;gap:clamp(14px,2.6vw,42px);margin:3.2vh 0 3.4vh}
+  .countdown div{display:flex;flex-direction:column;gap:.7vh}
+  .countdown b{font-weight:600;font-size:clamp(22px,4.2vh,46px);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+  .countdown span{font-size:9px;letter-spacing:.26em;color:var(--muted)}
+  .venue{font-weight:600;letter-spacing:.16em;font-size:clamp(11px,1.7vh,18px)}
+  /* Live embedded map. The PDF block is 237.6x96.2 (~2.47:1) which reads as a
+     button, not a usable map — widened the ratio a little so it's pannable. */
+  .mapwrap{
+    width:clamp(260px,34vw,520px);margin:3.2vh auto 0;
+    border:1px solid rgba(20,24,13,.22);background:#e8e6de;
+  }
+  .mapwrap #map{width:100%;aspect-ratio:5/2;background:#e8e6de}
+  /* desaturate the tiles only — leaves Leaflet's attribution/controls legible */
+  .mapwrap .leaflet-tile-pane{filter:grayscale(.85) contrast(.92) brightness(1.04)}
+  .mapwrap .leaflet-container{font-family:Montserrat,sans-serif}
+  .pin span{
+    display:block;width:15px;height:15px;border-radius:50%;background:var(--olive);
+    box-shadow:0 0 0 4px rgba(42,67,0,.22),0 1px 5px rgba(0,0,0,.45);
+  }
+  .mapfoot{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    width:clamp(260px,34vw,520px);margin:1.4vh auto 0;flex-wrap:wrap;
+  }
+  .mapfoot .addr{font-size:clamp(9px,1.18vh,12px);letter-spacing:.1em;color:#4a5140;text-align:left}
+  .directions{
+    background:var(--olive);color:#fff;padding:1.15vh 2.2vh;border-radius:999px;
+    font-weight:600;letter-spacing:.18em;font-size:clamp(8.5px,1.08vh,11px);
+    white-space:nowrap;transition:filter .2s,transform .18s;
+  }
+  .directions:hover{filter:brightness(1.3);transform:translateY(-1px)}
+  @media (max-width:768px){
+    .mapwrap iframe{aspect-ratio:4/3}
+    .mapfoot{justify-content:center}
+    .mapfoot .addr{text-align:center}
+  }
+
+  .tl-intro{font-size:clamp(10px,1.35vh,14px);line-height:1.9;color:#3a4030}
+
+  /* Vertical timeline in its own scroll area. The wheel scrolls this list
+     while the cursor is over it and only hands back to the page at the ends. */
+  .tl{
+    position:relative;margin:3vh auto 0;width:min(80vw,330px);
+    height:min(46vh,340px);overflow-y:auto;overscroll-behavior:contain;
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 9%,#000 91%,transparent);
+            mask-image:linear-gradient(to bottom,transparent,#000 9%,#000 91%,transparent);
+    scrollbar-width:none;
+  }
+  .tl::-webkit-scrollbar{display:none}
+  .tl-inner{position:relative;padding:3vh 0 3vh 0}
+  .tl-inner::before{                       /* the spine */
+    content:"";position:absolute;left:calc(1.6rem + 11px);top:0;bottom:0;
+    width:1px;background:rgba(20,24,13,.2);
+  }
+  .tl-stop{
+    position:relative;display:grid;grid-template-columns:auto 1fr;
+    gap:0 1.5rem;align-items:center;padding:2.1vh 0 2.1vh 1.6rem;text-align:left;
+  }
+  .tl-stop .node{
+    width:23px;height:23px;border-radius:50%;background:var(--olive);color:#fff;
+    display:grid;place-items:center;flex:none;z-index:1;
+    box-shadow:0 0 0 5px #fbfaf7;
+  }
+  .tl-stop .node svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .tl-stop b{display:block;font-weight:600;font-size:clamp(11px,1.5vh,16px);letter-spacing:.05em}
+  .tl-stop span{display:block;font-size:clamp(9px,1.12vh,12px);letter-spacing:.14em;color:#4a5140;margin-top:.3vh}
+
+  /* scroll cue — fades in while the pointer is over the list */
+  .tl-cue{
+    position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    opacity:0;transition:opacity .3s ease;pointer-events:none;z-index:3;
+  }
+  .tl-wrap:hover .tl-cue{opacity:.75}
+  .tl-cue .mouse{
+    width:17px;height:27px;border:1.4px solid var(--olive);border-radius:9px;position:relative;
+  }
+  .tl-cue .mouse::after{
+    content:"";position:absolute;left:50%;top:5px;width:2.5px;height:5px;border-radius:2px;
+    background:var(--olive);transform:translateX(-50%);
+    animation:wheelDot 1.5s ease-in-out infinite;
+  }
+  @keyframes wheelDot{0%{opacity:0;transform:translate(-50%,0)}35%{opacity:1}100%{opacity:0;transform:translate(-50%,9px)}}
+  .tl-cue em{font-style:normal;font-size:7.5px;letter-spacing:.24em;color:var(--olive)}
+  .tl-wrap{position:relative;width:min(80vw,330px);margin:0 auto}
+
+  .swatches{display:flex;justify-content:center;gap:clamp(12px,2.2vw,30px);margin-top:5vh;flex-wrap:wrap}
+  .sw{display:flex;flex-direction:column;align-items:center;gap:1.2vh}
+  .sw i{width:clamp(48px,7vh,82px);height:clamp(48px,7vh,82px);border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  .sw span{font-size:9px;letter-spacing:.2em;color:var(--muted)}
+  .sectitle{font-weight:500;letter-spacing:.3em;font-size:clamp(12px,1.9vh,20px);margin-bottom:1.2vh}
+  .placeholder{margin-top:3vh;font-size:11px;letter-spacing:.14em;color:var(--muted);line-height:2}
+
+  .ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:5vh 3vw;margin-top:6vh;text-align:center}
+  .ent-grid h4{font-size:9.5px;letter-spacing:.26em;color:var(--olive);margin-bottom:1.6vh;font-weight:600}
+  .ent-grid p{font-size:clamp(10px,1.3vh,13px);line-height:2;color:#3a4030}
+
+  .faq{max-width:640px;margin:6vh auto 0;text-align:left}
+  .faq details{border-bottom:1px solid rgba(0,0,0,.12)}
+  .faq summary{padding:2.6vh 0;font-size:clamp(10px,1.4vh,14px);letter-spacing:.1em;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--olive);font-weight:600}
+  .faq details[open] summary::after{content:"–"}
+  .faq p{padding:0 0 2.8vh;font-size:clamp(10px,1.3vh,13px);line-height:1.95;color:#4a5140}
+
+  /* ============================================================
+     RSVP
+     ============================================================ */
+  #rsvp{position:fixed;inset:0;z-index:90;background:#0a0c07;display:none;overflow-y:auto}
+  #rsvp.on{display:block}
+  /* the overlay owns the screen — hide the persistent chrome behind it */
+  body.rsvp-open .monogram,
+  body.rsvp-open .rsvp-pill,
+  body.rsvp-open .secnav,
+  body.rsvp-open .audio-btn,
+  body.rsvp-open .audio-hint{display:none}
+  .rwrap{max-width:560px;margin:0 auto;padding:12vh 7vw 10vh}
+  .rwrap h3{font-weight:500;letter-spacing:.3em;font-size:clamp(15px,2.4vh,26px);text-align:center;margin-bottom:1.4vh}
+  .rwrap .rsub{text-align:center;font-size:11px;letter-spacing:.12em;opacity:.6;margin-bottom:5vh;line-height:1.9}
+  .rlabel{font-size:9.5px;letter-spacing:.24em;opacity:.65;margin-bottom:1.3vh;display:block}
+  .rinput{
+    width:100%;height:52px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.22);
+    color:#fff;padding:0 18px;outline:0;font-size:14px;letter-spacing:.06em;transition:border-color .2s;
+  }
+  .rinput:focus{border-color:#fff}
+  .sugg{border:1px solid rgba(255,255,255,.18);border-top:0;background:rgba(20,24,16,.98)}
+  .sugg button{display:block;width:100%;text-align:left;padding:14px 18px;font-size:13px;letter-spacing:.05em;border-bottom:1px solid rgba(255,255,255,.07);transition:background .15s}
+  .sugg button:hover{background:rgba(255,255,255,.09)}
+  .sugg .done{font-size:9px;letter-spacing:.16em;color:#c9d6a6;margin-left:8px}
+  .party{margin-top:5vh}
+  .party .plabel{font-size:9.5px;letter-spacing:.24em;opacity:.6;margin-bottom:2.6vh}
+  .banner{
+    background:rgba(201,214,166,.13);border-left:2px solid #c9d6a6;
+    padding:16px 18px;font-size:11px;letter-spacing:.07em;line-height:1.85;margin-bottom:3.4vh;
+  }
+  .member{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.1);flex-wrap:wrap}
+  .member .who{font-size:13.5px;letter-spacing:.05em}
+  .member .who em{display:block;font-style:normal;font-size:9px;letter-spacing:.14em;opacity:.45;margin-top:5px}
+  .seg{display:flex;border:1px solid rgba(255,255,255,.22);flex:none}
+  .seg button{padding:9px 15px;font-size:9.5px;letter-spacing:.14em;opacity:.55;transition:all .18s}
+  .seg button.yes.on{background:var(--olive);opacity:1;color:#fff}
+  .seg button.no.on{background:rgba(255,255,255,.9);opacity:1;color:#14180d}
+  .rwrap textarea{
+    width:100%;min-height:104px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.22);
+    color:#fff;padding:15px 18px;outline:0;font-family:inherit;font-size:13px;line-height:1.75;resize:vertical;margin-top:1.3vh;
+  }
+  .submit{width:100%;background:var(--olive);color:#fff;height:56px;margin-top:4.4vh;font-weight:600;letter-spacing:.26em;font-size:11px;transition:filter .2s}
+  .submit:hover{filter:brightness(1.3)}
+  .submit:disabled{opacity:.35;cursor:not-allowed}
+  .rclose{position:fixed;right:3.2vw;top:4.2vh;font-size:11px;letter-spacing:.2em;opacity:.65;z-index:95}
+  .ok{text-align:center;padding:9vh 0}
+  .ok .tick{font-size:34px;color:#c9d6a6;margin-bottom:2.6vh}
+
+  .fieldnote{margin-top:1.2vh;font-size:9.5px;letter-spacing:.1em;opacity:.42;line-height:1.7}
+
+  /* ---------- mobile: the wheel doesn't fit below ~768 ---------- */
+  @media (max-width:768px){
+    .wheel,.jarrows,.scrollcue{display:none}
+    /* no horizontal track on phones — plain vertical stacking */
+    #hpin{height:auto;overflow:visible}
+    #htrack{display:block;width:auto;height:auto;transform:none!important}
+    #htrack > section{width:auto}
+    #intro{height:100vh}
+    #journey,#wedding{height:auto}
+    .tl{height:auto;max-height:none;overflow:visible;width:auto;-webkit-mask-image:none;mask-image:none}
+    .tl-cue{display:none}
+    .deck{width:min(86vw,340px)}
+    .mphoto{width:100%;background:#f6f2e8;padding:5.5% 5.5% 5.5%}
+    .mphoto img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+    #wedding{overflow:visible;padding:12vh 0 16vh}
+    #journey{padding:14vh 0 12vh}
+    .jcontent{position:static;transform:none;width:auto;padding:0 8vw}
+    .jrow{flex-direction:column;gap:22px}
+    .jrow .copy{max-width:none;text-align:center}
+    .secnav-items{width:min(88vw,340px)}
+    .tl-row{flex-direction:column;gap:20px}
+    .tl-stop{flex-direction:row;justify-content:center;gap:12px}
+    .tl-stop::after{display:none}
+    .tl .axis{display:none}
+    .countdown{gap:16px}
+    /* The bottom nav is fixed, so content scrolls underneath it. A pill-shaped
+       backdrop left text poking out either side; use a full-width gradient
+       scrim instead, tinted to match the section behind. */
+    .secnav{
+      left:0;right:0;width:100%;transform:none;
+      padding:2.2vh 0 2.4vh;bottom:0;
+    }
+    .secnav::before{
+      content:"";position:absolute;left:0;right:0;top:-4vh;bottom:0;z-index:-1;
+      background:linear-gradient(to top,rgba(8,11,6,.94) 45%,rgba(8,11,6,0));
+      pointer-events:none;
+    }
+    body.on-light .secnav::before{
+      background:linear-gradient(to top,rgba(251,250,247,.97) 45%,rgba(251,250,247,0));
+    }
+    .audio-btn{bottom:2.4vh}
+    #journey{padding-bottom:20vh}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition-duration:.01ms!important}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. GATE ============ -->
+<div id="gate">
+  <div class="bg"><img src="img/intro.jpg" alt=""></div>
+  <svg class="grass" id="grass" viewBox="0 0 1200 170" preserveAspectRatio="none" aria-hidden="true"></svg>
+  <canvas class="motes" id="motes" aria-hidden="true"></canvas>
+
+  <div id="loader">
+    <div class="lnum"><span id="lpct">0</span><sup>%</sup></div>
+    <div class="lbar"><i id="lbarFill"></i></div>
+    <div class="lcap">PREPARING OUR STORY</div>
+  </div>
+
+  <div class="gatelogo logo" aria-hidden="true"></div>
+
+  <div class="stack">
+    <label for="pw">PASSWORD</label>
+    <input id="pw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="current-password" />
+    <button id="enter">ENTER</button>
+    <div class="err" id="gerr">That's not quite it — try again</div>
+  </div>
+  <div class="hint">prototype hint — the password is <b>kliffandchao</b></div>
+</div>
+
+<!-- ============ persistent chrome ============ -->
+<div class="brand logo" id="brand" aria-label="Kliff and Chao" role="img"></div>
+<button class="rsvp-pill" id="openRsvp">RSVP</button>
+<button class="audio-btn" id="audioBtn" title="Toggle music" aria-label="Toggle music">
+  <span></span><span></span><span></span><span></span>
+</button>
+<div class="audio-hint" id="audioHint">♪ THE BLESSING — TAP TO MUTE</div>
+
+<nav class="secnav" id="secnav">
+  <div class="secnav-items">
+    <button data-go="intro"><span>INTRO</span><i class="dot"></i></button>
+    <button data-go="journey"><span>JOURNEY</span><i class="dot"></i></button>
+    <button data-go="wedding"><span>WEDDING</span><i class="dot"></i></button>
+    <div class="secnav-rule"></div>
+  </div>
+</nav>
+
+<!-- ==== 2 + 3 + 5-7 : one horizontal track, intro -> journey -> wedding =====
+     #hpin is what ScrollTrigger pins; #htrack is what we translate. They must
+     be different elements or the pin and the slide fight over `transform`. -->
+<div id="hpin"><div id="htrack">
+
+<section id="intro">
+  <div class="bg">
+    <video src="video/intro-web.mp4" poster="img/intro-poster.jpg"
+           autoplay muted loop playsinline preload="metadata"
+           aria-hidden="true" tabindex="-1"></video>
+  </div>
+  <div class="plate">
+    <div class="lockup"><b>kliff</b><em>and</em><b>chao</b></div>
+    <div class="versecol">
+      <button class="verse" id="verse" aria-live="polite" title="Tap for another verse"></button>
+      <div class="verse-hint" id="verseHint">TAP THE VERSE FOR ANOTHER</div>
+    </div>
+  </div>
+</section>
+
+<section id="journey">
+  <div class="jbg"><img src="img/p1_Im0.jpg" alt=""></div>
+  <svg class="grass" id="jgrass" viewBox="0 0 1200 170" preserveAspectRatio="none" aria-hidden="true"></svg>
+  <canvas class="motes" id="jmotes" aria-hidden="true"></canvas>
+  <div class="wheel" id="wheel"></div>
+
+  <div class="jcontent">
+    <div class="chapno jfade" id="jno">CHAPTER 1</div>
+    <h2 class="jfade" id="jtitle">WHERE WE MET</h2>
+    <div class="jrow">
+      <div class="deck" id="deck"></div>
+      <p class="copy jfade" id="jcopy"></p>
+    </div>
+  </div>
+
+  <div class="jarrows">
+    <button id="jprev">← BACK</button>
+    <span class="mark">✦</span>
+    <button id="jnext">NEXT →</button>
+  </div>
+  <div class="scrollcue">SCROLL</div>
+</section>
+
+<!-- ============ 5-7. WEDDING ============ -->
+<section id="wedding">
+  <div class="tabs">
+    <div class="tabrow" id="tabrow">
+      <button class="on" data-tab="detail">DETAIL</button>
+      <button data-tab="timeline">TIMELINE</button>
+      <button data-tab="mottif">MOTTIF</button>
+      <button data-tab="entourage">ENTOURAGE</button>
+      <button data-tab="faq">FAQ</button>
+    </div>
+    <div class="tabtrack"><div class="ind" id="tabind"></div></div>
+  </div>
+
+  <div class="panel on" data-panel="detail">
+    <div class="bigdate">MARCH 5, 2027</div>
+    <div class="countdown" id="cd">
+      <div><b id="cdMo">—</b><span>MONTHS</span></div>
+      <div><b id="cdD">—</b><span>DAYS</span></div>
+      <div><b id="cdH">—</b><span>HOURS</span></div>
+      <div><b id="cdM">—</b><span>MINUTES</span></div>
+      <div><b id="cdS">—</b><span>SECONDS</span></div>
+    </div>
+    <div class="venue">at Jpark Island Resort, Cebu</div>
+    <div class="mapwrap"><div id="map" role="img"
+         aria-label="Map showing Jpark Island Resort and Waterpark, Mactan, Cebu"></div></div>
+    <div class="mapfoot">
+      <div class="addr">Jpark Island Resort and Waterpark<br>M.L. Quezon Hwy, Brgy. Maribago, Lapu-Lapu City, Cebu</div>
+      <a class="directions" target="_blank" rel="noopener"
+         href="https://www.google.com/maps/dir/?api=1&amp;destination=Jpark+Island+Resort+and+Waterpark+Mactan+Cebu">GET DIRECTIONS →</a>
+    </div>
+  </div>
+
+  <div class="panel" data-panel="timeline">
+    <p class="tl-intro">Doors open at 3:30 PM. Ceremony begins at 4:00 PM sharp.<br>Reception to follow.</p>
+    <div class="tl-wrap">
+      <div class="tl" id="tl"><div class="tl-inner" id="tlInner"></div></div>
+      <div class="tl-cue"><span class="mouse"></span><em>SCROLL</em></div>
+    </div>
+  </div>
+
+  <div class="panel" data-panel="mottif">
+    <div class="sectitle">FOR THE LADIES</div>
+    <div class="swatches">
+      <div class="sw"><i style="background:#2A4300"></i><span>OLIVE</span></div>
+      <div class="sw"><i style="background:#6B7F52"></i><span>SAGE</span></div>
+      <div class="sw"><i style="background:#A8B894"></i><span>MOSS</span></div>
+      <div class="sw"><i style="background:#D9D2C2"></i><span>SAND</span></div>
+      <div class="sw"><i style="background:#F2EFE8"></i><span>IVORY</span></div>
+    </div>
+    <p class="placeholder">Palette is a placeholder — swap for the real motif.<br>“For the gentlemen” section to follow.</p>
+  </div>
+
+  <div class="panel" data-panel="entourage">
+    <div class="sectitle">ENTOURAGE</div>
+    <div class="ent-grid">
+      <div><h4>PARENTS OF THE GROOM</h4><p>Mr. &amp; Mrs. Kho<br>—</p></div>
+      <div><h4>PARENTS OF THE BRIDE</h4><p>Mr. &amp; Mrs. Bulawin<br>—</p></div>
+      <div><h4>PRINCIPAL SPONSORS</h4><p>—<br>—<br>—</p></div>
+      <div><h4>BEST MAN</h4><p>—</p></div>
+      <div><h4>MAID OF HONOR</h4><p>—</p></div>
+      <div><h4>GROOMSMEN</h4><p>—<br>—<br>—</p></div>
+      <div><h4>BRIDESMAIDS</h4><p>—<br>—<br>—</p></div>
+      <div><h4>RING / COIN / BIBLE</h4><p>—<br>—<br>—</p></div>
+    </div>
+    <p class="placeholder">No content was designed for this tab — structure only.</p>
+  </div>
+
+  <div class="panel" data-panel="faq">
+    <div class="sectitle">FAQ</div>
+    <div class="faq">
+      <details open><summary>What should I wear?</summary><p>Formal attire in the motif palette above. Placeholder copy.</p></details>
+      <details><summary>Can I bring a plus one?</summary><p>Your invitation lists everyone in your party. Placeholder copy.</p></details>
+      <details><summary>Is the ceremony indoors?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Where can I park?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Until when can I RSVP?</summary><p>Placeholder — the couple still needs to pick a deadline.</p></details>
+    </div>
+    <p class="placeholder">No content was designed for this tab — structure only.</p>
+  </div>
+</section>
+
+</div></div><!-- /#htrack /#hpin -->
+
+<!-- ============ RSVP ============ -->
+<div id="rsvp">
+  <button class="rclose" id="closeRsvp">CLOSE ✕</button>
+  <div class="rwrap" id="rbody">
+    <h3>RSVP</h3>
+    <p class="rsub">Type your last name and we'll find your invitation.</p>
+
+    <label class="rlabel" for="q">LAST NAME</label>
+    <input class="rinput" id="q" autocomplete="off" placeholder="e.g. Kho" />
+    <div class="fieldnote">Prototype: try <b>kho</b>, <b>co</b> (phonetic → Kho), <b>chao</b>, <b>sy</b>, <b>reyes</b></div>
+    <div class="sugg" id="sugg"></div>
+
+    <div class="party" id="party" style="display:none">
+      <div id="banner"></div>
+      <div class="plabel" id="plabel"></div>
+      <div id="members"></div>
+      <label class="rlabel" style="margin-top:4.6vh">A MESSAGE FOR KLIFF &amp; CHAO <span style="opacity:.5">(OPTIONAL)</span></label>
+      <textarea id="msg" maxlength="500" placeholder="Leave a note…"></textarea>
+      <button class="submit" id="send">SEND OUR RSVP</button>
+    </div>
+  </div>
+</div>
+
+<!-- spaces in the filename must be percent-encoded or the request 404s -->
+<audio id="bgm" loop preload="none"
+       src="audio/The%20Blessing%20-%20Cinematic%20Version.mp3"></audio>
+
+<script>
+/* ============================================================
+   MOCK DATA — stands in for the Google Sheet
+   ============================================================ */
+const GUESTS = [
+  {id:'g_a1',first:'Klifford',last:'Kho',nick:'Kliff',party:'kho-family',label:'The Kho Family'},
+  {id:'g_a2',first:'Clarissa',last:'Kho',nick:'Cla',party:'kho-family',label:'The Kho Family'},
+  {id:'g_a3',first:'Benedict',last:'Kho',nick:'Ben',party:'kho-family',label:'The Kho Family'},
+  {id:'g_b1',first:'Charlene',last:'Bulawin',nick:'Chao',party:'bulawin-family',label:'The Bulawin Family'},
+  {id:'g_b2',first:'Marites',last:'Bulawin',nick:'Tess',party:'bulawin-family',label:'The Bulawin Family'},
+  {id:'g_c1',first:'Andrea',last:'Sy',nick:'Andy',party:'sy-party',label:'Sy + 1'},
+  {id:'g_c2',first:'Marco',last:'Sy',nick:null,party:'sy-party',label:'Sy + 1'},
+  {id:'g_d1',first:'Joselito',last:'Reyes',nick:'Jojo',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_d2',first:'Maria',last:'Reyes',nick:'Baby',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_d3',first:'Paolo',last:'Reyes',nick:'Paul',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_e1',first:'Wilson',last:'Uy',nick:null,party:'uy-solo',label:'Wilson Uy'},
+];
+// pretend the Reyes party already responded
+const STATE = {
+  g_d1:{status:'attending',at:'3 March 2026',by:'Maria'},
+  g_d2:{status:'attending',at:'3 March 2026',by:'Maria'},
+  g_d3:{status:'not_attending',at:'3 March 2026',by:'Maria'},
+};
+
+/* Each chapter holds 3-5 stories. One scroll step = one story = one photocard.
+   All copy here is placeholder — swap in `content/chapters.ts` for the build. */
+const CHAPTERS = [
+  {n:'CHAPTER 1', t:'WHERE WE MET', label:'How we met', stories:[
+    {img:'img/p3_Im0.jpg', cap:'The night we met',      c:'It started somewhere completely ordinary. Placeholder copy for the moment our paths first crossed.'},
+    {img:'img/p4_Im0.jpg', cap:'Still just friends',    c:'Neither of us thought much of it at the time. Placeholder copy for the weeks that followed.'},
+    {img:'img/intro.jpg',  cap:'One long conversation', c:'And then one conversation went on far too long. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 2', t:'LDR VIBES', label:'LDR Vibes', stories:[
+    {img:'img/p4_Im0.jpg', cap:'Different time zones',  c:'Different time zones, terrible connections. Placeholder copy for the long-distance years.'},
+    {img:'img/p1_Im0.jpg', cap:'Midnight good-mornings',c:'Good-morning texts that arrived at midnight. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Airport arrivals',      c:'Counting down to the next airport arrival. Placeholder copy.'},
+    {img:'img/intro.jpg',  cap:'Closing the distance',  c:'Learning that distance is mostly a logistics problem. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 3', t:'FAVOR CONFERENCE', label:'Favor Conference', stories:[
+    {img:'img/p2_Im0.jpg', cap:'That weekend',          c:'The weekend that changed the shape of things. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Only one conversation', c:'A room full of people and somehow only one conversation. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'The long way home',     c:'We drove home the long way on purpose. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 4', t:'DATES', label:'Dates', stories:[
+    {img:'img/p1_Im0.jpg', cap:'Coffee, again',         c:'Coffee runs that turned into whole afternoons. Placeholder copy.'},
+    {img:'img/intro.jpg',  cap:'No destination',        c:'Long drives with no particular destination. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'All the way in',        c:'The slow ordinary business of falling all the way in. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'Meeting everyone',      c:'Meeting the families, surviving the questions. Placeholder copy.'},
+    {img:'img/p2_Im0.jpg', cap:'Not a question anymore',c:'Somewhere in here it stopped being a question. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 5', t:"WE'RE ENGAGED!", label:"WE'RE ENGAGED!", stories:[
+    {img:'img/intro.jpg',  cap:'Three weeks of nerves', c:'He had been carrying it around for three weeks. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Right after yes',       c:'And then a yes, before he had finished asking. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'Telling everyone',      c:'Phone calls to everyone, in no sensible order. Placeholder copy.'},
+    {img:'img/p1_Im0.jpg', cap:'March 5, 2027',         c:'March 5, 2027. Placeholder copy for what comes next.'},
+  ]},
+];
+/* Flattened to scroll steps — one entry per story, tagged with its chapter. */
+const STORIES = CHAPTERS.flatMap((ch,ci)=>
+  ch.stories.map((s,si)=>({...s, ci, si, of:ch.stories.length})));
+const STEP = 18; // degrees between chapter markers
+
+/* Verses live in content/ in the real build — one array, easy to edit. */
+const VERSES = [
+  {t:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."', r:'JEREMIAH 29:11'},
+  {t:'For nothing will be impossible with God.', r:'LUKE 1:37'},
+  {t:'It is not good for the man to be alone. I will make a helper suitable for him.', r:'GENESIS 2:18'},
+  {t:'Though one may be overpowered, two can defend themselves. A cord of three strands is not quickly broken.', r:'ECCLESIASTES 4:12'},
+  {t:'And over all these virtues put on love, which binds them all together in perfect unity.', r:'COLOSSIANS 3:14'},
+];
+
+/* ============================================================
+   LOGO — fetched once and inlined into every .logo container, so the
+   paths inherit currentColor. Falls back to an <img> if the fetch fails.
+   ============================================================ */
+(async function bootLogos(){
+  const hosts=[...document.querySelectorAll('.logo')];
+  if(!hosts.length) return;
+  try{
+    const res=await fetch('img/kliffandchao-logo.svg',{cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const txt=await res.text();
+    const svg=new DOMParser().parseFromString(txt,'image/svg+xml').querySelector('svg');
+    if(!svg) throw new Error('no <svg> root');
+    svg.removeAttribute('width'); svg.removeAttribute('height');
+    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+    // A <style> inside inline SVG is DOCUMENT-scoped, not shadowed — it would
+    // leak `.cls-1{fill:...}` into the whole page and pin the fill to one
+    // colour. Drop it and let `fill` inherit from `.logo svg{fill:currentColor}`.
+    svg.querySelectorAll('style').forEach(s=>s.remove());
+    svg.querySelectorAll('[fill]').forEach(n=>n.removeAttribute('fill'));
+    hosts.forEach(h=>{ h.innerHTML=''; h.appendChild(svg.cloneNode(true)); });
+  }catch(e){
+    console.warn('logo inline failed, falling back to <img>:',e.message);
+    hosts.forEach(h=>{ h.innerHTML='<img src="img/kliffandchao-logo.svg" alt="Kliff and Chao" style="width:100%;height:auto">'; });
+  }
+})();
+
+/* ============================================================
+   GATE AMBIENCE — swaying grass + drifting pollen
+   Purely decorative; skipped entirely under reduced-motion.
+   ============================================================ */
+const calm = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+function buildGrass(el){
+  if(calm||!el) return;
+  const N = innerWidth < 768 ? 34 : 60, W = 1200, H = 170;
+  let d = '';
+  for(let i=0;i<N;i++){
+    const x = (i + 0.2 + Math.random()*0.6) * (W/N);
+    const h = 58 + Math.random()*95;              // blade height
+    const lean = (Math.random()-0.5) * 30;        // resting lean
+    const w = 2 + Math.random()*2.6;              // base width, tapers to a point
+    d += `<path d="M${x.toFixed(1)} ${H} Q${(x+lean*0.35).toFixed(1)} ${(H-h*0.55).toFixed(1)} `
+       + `${(x+lean).toFixed(1)} ${(H-h).toFixed(1)} Q${(x+lean*0.35+w).toFixed(1)} ${(H-h*0.55).toFixed(1)} `
+       + `${(x+w).toFixed(1)} ${H} Z" style="animation-duration:${(3.4+Math.random()*3).toFixed(2)}s;`
+       + `animation-delay:${(-Math.random()*6).toFixed(2)}s;opacity:${(0.5+Math.random()*0.5).toFixed(2)}"/>`;
+  }
+  el.innerHTML = d;
+}
+
+/* Returns {start, stop} so each surface can be paused when it isn't on screen. */
+function makeMotes(cv, density=26000, tint='255,251,238'){
+  if(calm||!cv) return {start(){},stop(){}};
+  const cx = cv.getContext('2d');
+  const dpr = Math.min(devicePixelRatio||1, 2);   // cap DPR: 3x on phones is wasted fill rate
+  let W=0, H=0, parts=[], raf=0;
+  function resize(){
+    W = cv.width  = cv.offsetWidth  * dpr;
+    H = cv.height = cv.offsetHeight * dpr;
+    const n = Math.round(Math.min(55, (cv.offsetWidth*cv.offsetHeight)/density));
+    parts = Array.from({length:n}, () => ({
+      x: Math.random()*W, y: Math.random()*H,
+      r: (0.7 + Math.random()*2.1) * dpr,
+      rise: (0.05 + Math.random()*0.22) * dpr,   // slow upward drift
+      amp: (6 + Math.random()*22) * dpr,         // horizontal sway width
+      ph: Math.random()*Math.PI*2,
+      sp: 0.003 + Math.random()*0.006,
+      a: 0.14 + Math.random()*0.42
+    }));
+  }
+  function tick(){
+    cx.clearRect(0,0,W,H);
+    for(const p of parts){
+      p.y -= p.rise; p.ph += p.sp;
+      if(p.y < -8){ p.y = H + 8; p.x = Math.random()*W; }
+      cx.beginPath();
+      cx.arc(p.x + Math.sin(p.ph)*p.amp, p.y, p.r, 0, 6.2832);
+      cx.fillStyle = `rgba(${tint},${p.a})`;
+      cx.fill();
+    }
+    raf = requestAnimationFrame(tick);
+  }
+  addEventListener('resize', resize);
+  return {
+    start(){ if(raf) return; resize(); tick(); },
+    stop(){ cancelAnimationFrame(raf); raf=0; }
+  };
+}
+
+// gate
+buildGrass(document.getElementById('grass'));
+const gateMotes = makeMotes(document.getElementById('motes'));
+gateMotes.start();
+window.__stopMotes = () => gateMotes.stop();     // gate is dismissed
+
+// journey — same treatment, slightly sparser so it stays behind the timeline
+buildGrass(document.getElementById('jgrass'));
+const journeyMotes = makeMotes(document.getElementById('jmotes'), 34000);
+window.__journeyMotes = journeyMotes;
+
+// never animate a canvas the user can't see
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ gateMotes.stop(); journeyMotes.stop(); }
+  else { if(getComputedStyle(gate).display!=='none') gateMotes.start(); journeyMotes.start(); }
+});
+
+/* ============================================================
+   GATE  +  AUDIO   (the ENTER click is the audio gesture)
+   ============================================================ */
+const gate=document.getElementById('gate'), pw=document.getElementById('pw'),
+      gerr=document.getElementById('gerr'), bgm=document.getElementById('bgm'),
+      audioBtn=document.getElementById('audioBtn'), audioHint=document.getElementById('audioHint');
+let muted = localStorage.getItem('muted')==='1';
+
+function paintAudio(){ audioBtn.classList.toggle('muted',muted||bgm.paused); }
+function fadeIn(el,ms){
+  el.volume=0; const t0=performance.now();
+  (function step(now){ const p=Math.min(1,(now-t0)/ms); el.volume=p*0.55;
+    if(p<1) requestAnimationFrame(step); })(t0);
+}
+audioBtn.onclick=()=>{
+  muted=!muted; bgm.muted=muted; localStorage.setItem('muted',muted?'1':'0');
+  if(!muted && bgm.paused) bgm.play().catch(()=>{});
+  paintAudio();
+};
+
+function reveal(){
+  gate.style.opacity='0';
+  setTimeout(()=>{ gate.style.display='none'; window.__stopMotes && window.__stopMotes(); },900);
+  window.__journeyMotes && window.__journeyMotes.start();   // journey ambience takes over
+  document.body.style.overflow='';
+  if(!muted){
+    audioHint.style.transition='opacity .6s'; audioHint.style.opacity='.55';
+    setTimeout(()=>audioHint.style.opacity='0',4200);
+  }
+  initMap();
+  // reveal the verse affordance once, then let it fade
+  const vh=document.getElementById('verseHint');
+  setTimeout(()=>{ vh.style.opacity='.5'; },1400);
+  setTimeout(()=>{ vh.style.opacity='0'; },7000);
+}
+
+/* 0 -> 100 loader. Eases out near the end so it doesn't feel mechanical,
+   and the real build should hold at ~90 until assets actually resolve. */
+function runLoader(done){
+  const box=document.getElementById('loader'),
+        num=document.getElementById('lpct'),
+        bar=document.getElementById('lbarFill');
+  document.querySelector('#gate .stack').style.opacity='0';
+  box.classList.add('on');
+  if(calm){ num.textContent='100'; bar.style.width='100%'; setTimeout(done,320); return; }
+  const DUR=2000, t0=performance.now();
+  let finished=false;
+  const finish=()=>{
+    if(finished) return; finished=true;
+    num.textContent='100'; bar.style.width='100%';
+    setTimeout(done,340);                          // let 100% land before revealing
+  };
+  (function step(now){
+    if(finished) return;
+    const t=Math.min(1,(now-t0)/DUR);
+    const v=Math.round((1-Math.pow(1-t,2.2))*100); // decelerate toward 100
+    num.textContent=v; bar.style.width=v+'%';
+    if(t<1) requestAnimationFrame(step); else finish();
+  })(t0);
+  // rAF stops entirely in a backgrounded tab. Without this guard a guest who
+  // switches apps mid-load comes back to a loader frozen at 0 forever.
+  setTimeout(finish, DUR+700);
+}
+
+function unlock(){
+  // NOTE: real build calls play() synchronously here, muted, then unmutes after
+  // /api/gate resolves — see PLAN.md "Background music".
+  bgm.muted=true;
+  bgm.play().then(()=>{
+    if(!muted){ bgm.muted=false; fadeIn(bgm,1500); }
+    paintAudio();
+  }).catch(()=>paintAudio());
+  runLoader(reveal);
+}
+document.getElementById('enter').onclick=()=>{
+  if(pw.value.normalize('NFKC').trim().toLowerCase()==='kliffandchao') unlock();
+  else { gerr.classList.add('show'); pw.value=''; pw.focus(); }
+};
+pw.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('enter').click(); });
+document.body.style.overflow='hidden';
+paintAudio();
+
+/* ============================================================
+   INTRO VERSE — its own layer, cycles on click
+   ============================================================ */
+const verseEl=document.getElementById('verse'), verseHint=document.getElementById('verseHint');
+let vi=0, vBusy=false;
+function paintVerse(animate){
+  const v=VERSES[vi];
+  const html=`${v.t}<span class="ref">${v.r}</span>`;
+  if(!animate){ verseEl.innerHTML=html; return; }
+  vBusy=true; verseEl.style.opacity='0';
+  setTimeout(()=>{ verseEl.innerHTML=html; verseEl.style.opacity=''; vBusy=false; },340);
+}
+paintVerse(false);
+verseEl.addEventListener('click',()=>{
+  if(vBusy) return;                       // ignore mashing mid-fade
+  vi=(vi+1)%VERSES.length;
+  paintVerse(true);
+  verseHint.style.opacity='0';            // affordance has done its job
+});
+
+/* ============================================================
+   CIRCULAR TIMELINE
+   ============================================================ */
+const wheel=document.getElementById('wheel');
+const marks=CHAPTERS.map((ch,i)=>{
+  const a=i*STEP, rad=a*Math.PI/180;
+  const el=document.createElement('div');
+  el.className='mk'+(i===0?' on':'');
+  // place on the rim: radius = 50% of the wheel box
+  el.style.left=(50+50*Math.sin(rad))+'%';
+  el.style.top =(50-50*Math.cos(rad))+'%';
+  el.innerHTML='<div class="hit"></div><div class="dot"></div><div class="lbl">'+ch.t+'</div>';
+  el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+  el.setAttribute('aria-label','Go to '+ch.t);
+  wheel.appendChild(el); return el;
+});
+const jno=document.getElementById('jno'),jtitle=document.getElementById('jtitle'),
+      jcopy=document.getElementById('jcopy'),
+      fades=document.querySelectorAll('.jfade');
+let active=-1;
+
+/* Photocard deck. Cards are stacked back-to-front; the active one sits flat on
+   top and each card behind is nudged down and scaled a little. Advancing a
+   chapter lifts the current card up and away. */
+const deck=document.getElementById('deck');
+const cardHTML=(s,cls='')=>
+  `<figure class="card ${cls}"><div class="ph"><img src="${s.img}" alt="" loading="lazy"></div>`
+  +`<figcaption>${s.cap}</figcaption></figure>`;
+deck.innerHTML = cardHTML(STORIES[0],'sizer')      // in-flow, invisible: sets deck height
+               + STORIES.map(s=>cardHTML(s)).join('');
+const cards=[...deck.querySelectorAll('.card:not(.sizer)')];
+/* Fixed per-card jitter so the fan looks hand-laid but never reshuffles. */
+const TILT=cards.map((_,k)=>((k*37)%7-3)*0.8);
+/* Spacing between fanned cards. Cards are ~210px wide, so anything much
+   under ~90 buries them in each other. */
+const SPREAD=98;
+let selected=0;               // which card's text is showing
+
+function place(j,mid){        // slot geometry within a chapter's fan
+  return { x:(j-mid)*SPREAD, y:Math.abs(j-mid)*5, rot:(j-mid)*4.5 };
+}
+function paintDeck(i,sel){
+  const cur=STORIES[i], n=CHAPTERS[cur.ci].stories.length, mid=(n-1)/2;
+  cards.forEach((c,k)=>{
+    const s=STORIES[k];
+    if(s.ci!==cur.ci){                      // other chapters: cleared away
+      c.style.opacity='0'; c.style.pointerEvents='none'; c.style.zIndex='0';
+      c.classList.remove('sel');
+      return;
+    }
+    const {x,y,rot}=place(s.si,mid);
+    if(s.si>cur.si){                        // not revealed yet — parked to the left
+      c.style.transform=`translateX(calc(-50% + ${x-90}px)) translateY(${y}px) rotate(${rot}deg) scale(.9)`;
+      c.style.opacity='0'; c.style.pointerEvents='none'; c.style.zIndex='0';
+      c.classList.remove('sel');
+    }else{                                  // revealed — slides right into its slot
+      const isSel=k===sel;
+      c.style.transform=`translateX(calc(-50% + ${x}px)) translateY(${y}px) `
+        +`rotate(${(rot+TILT[k]).toFixed(1)}deg) scale(${isSel?1.07:1})`;
+      c.style.opacity='1'; c.style.pointerEvents='auto';
+      c.style.zIndex=String(isSel?60:10+s.si);
+      c.classList.toggle('sel',isSel);
+    }
+  });
+}
+/* Clicking a revealed card shows its text without moving the scroll. */
+function selectCard(k){
+  const cur=STORIES[active];
+  const s=STORIES[k];
+  if(s.ci!==cur.ci||s.si>cur.si) return;    // not part of the visible fan
+  selected=k;
+  paintDeck(active,selected);
+  writeCopy(k);
+}
+cards.forEach((c,k)=>{
+  c.setAttribute('role','button'); c.setAttribute('tabindex','0');
+  c.addEventListener('click',()=>selectCard(k));
+  c.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();selectCard(k);} });
+});
+
+/* Swap the heading + copy to a given story index, with a short crossfade. */
+function writeCopy(k){
+  const s=STORIES[k], ch=CHAPTERS[s.ci];
+  fades.forEach(f=>f.style.opacity='0');
+  setTimeout(()=>{
+    jno.textContent = ch.n + ' · ' + (s.si+1) + ' / ' + s.of;
+    jtitle.textContent = ch.t;
+    jcopy.textContent = s.c;
+    fades.forEach(f=>f.style.opacity='');
+  },170);
+}
+
+/* `active` is a STORY index. Scrolling always selects the newest card. */
+function render(i){
+  if(i===active) return;            // only touch the DOM when the story actually changes
+  const prevCi = active>=0 ? STORIES[active].ci : -1;
+  active=i; selected=i;
+  const s=STORIES[i], ch=CHAPTERS[s.ci];
+  paintDeck(i,selected);
+  writeCopy(i);
+  if(s.ci!==prevCi){
+    marks.forEach((m,k)=>m.classList.toggle('on',k===s.ci));
+    // The wheel holds while you read a chapter's stories, then eases to the
+    // next marker — so it can't be driven off raw scroll progress.
+    if(window.gsap) gsap.to(wheel,{rotation:-s.ci*STEP,duration:.75,ease:'power2.out',overwrite:true});
+    if(window.gsap) gsap.to('.mk',{rotation:s.ci*STEP,duration:.75,ease:'power2.out',overwrite:true});
+  }
+}
+render(0);
+
+/* Guard against a zero-width viewport at load (hidden/collapsed pane, some
+   embedded webviews): matchMedia reports `true` and the mobile branch latches
+   permanently, wiping the desktop deck even after the window opens up. */
+const MQ_MOBILE=matchMedia('(max-width:768px)');
+const isMobile = window.innerWidth>0 && MQ_MOBILE.matches;
+const reduced  = matchMedia('(prefers-reduced-motion:reduce)').matches;
+MQ_MOBILE.addEventListener('change',()=>location.reload());  // rebuild on a real breakpoint cross
+
+let hST=null;
+/* One pinned timeline, three phases, measured in screens of scroll:
+     1 screen : slide intro -> journey
+     n-1      : turn the wheel through the chapters
+     1 screen : slide journey -> wedding
+   The track is 300vw, so one screen of travel is xPercent -33.333. */
+const WHEEL_SCREENS=STORIES.length-1;             // one screen per story
+const TOTAL_SCREENS=1+WHEEL_SCREENS+1;
+const P1=1/TOTAL_SCREENS;                         // end of intro slide
+const P2=(1+WHEEL_SCREENS)/TOTAL_SCREENS;         // end of wheel
+const SEG=100/3;                                  // one panel of a 300vw track
+
+if(!isMobile && !reduced){
+  gsap.registerPlugin(ScrollTrigger);
+  hST=ScrollTrigger.create({
+    trigger:'#hpin', start:'top top',
+    end:()=> '+='+(TOTAL_SCREENS*window.innerHeight),
+    pin:true, scrub:1,
+    onUpdate:self=>{
+      const p=self.progress;
+      // how many panels we've travelled: 0 -> 1 -> (hold) -> 2
+      let panel;
+      if(p<=P1)      panel = p/P1;                      // intro -> journey
+      else if(p<=P2) panel = 1;                         // parked on journey
+      else           panel = 1+(p-P2)/(1-P2);           // journey -> wedding
+      gsap.set('#htrack',{xPercent:-SEG*panel});
+
+      // middle phase steps through the stories; render() eases the wheel
+      // itself, only when the story crosses into a new chapter
+      const wt=Math.min(1,Math.max(0,(p-P1)/(P2-P1)));
+      render(Math.round(wt*(STORIES.length-1)));
+
+      const cue=document.querySelector('.scrollcue');
+      if(cue) cue.style.opacity = wt>0.05 ? 0 : '';
+      setSec(panel<0.5 ? 0 : panel<1.5 ? 1 : 2);        // scroll-spy
+    }
+  });
+  const jumpTo=i=>{                                 // i is a STORY index
+    if(!hST) return;
+    const t=hST.start+(hST.end-hST.start)*(P1+(P2-P1)*(i/(STORIES.length-1)));
+    window.scrollTo({top:t,behavior:'smooth'});
+  };
+  document.getElementById('jprev').onclick=()=>jumpTo(Math.max(0,active-1));
+  document.getElementById('jnext').onclick=()=>jumpTo(Math.min(STORIES.length-1,active+1));
+  // clicking (or keyboard-activating) a marker jumps to that chapter's first story
+  marks.forEach((m,ci)=>{
+    const go=()=>jumpTo(STORIES.findIndex(s=>s.ci===ci));
+    m.addEventListener('click',go);
+    m.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); }});
+  });
+} else {
+  // mobile / reduced-motion: every chapter and story stacked, no wheel, no deck
+  const host=document.querySelector('#journey .jcontent');
+  host.innerHTML=CHAPTERS.map(ch=>`
+    <div style="margin-bottom:10vh">
+      <div class="chapno">${ch.n}</div>
+      <h2>${ch.t}</h2>
+      ${ch.stories.map(s=>`
+        <div class="jrow" style="margin-bottom:5vh">
+          <div class="mphoto"><img src="${s.img}" alt="" loading="lazy"></div>
+          <p class="copy">${s.c}</p>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+/* ============================================================
+   WEDDING TABS — sliding underline
+   ============================================================ */
+const tabrow=document.getElementById('tabrow'), tabind=document.getElementById('tabind');
+function moveInd(btn){
+  const r=btn.getBoundingClientRect(), t=document.querySelector('.tabtrack').getBoundingClientRect();
+  tabind.style.width=r.width+'px';
+  tabind.style.transform='translateX('+(r.left-t.left)+'px)';
+}
+tabrow.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  tabrow.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.dataset.panel===b.dataset.tab));
+  moveInd(b);
+  if(b.dataset.tab==='detail') initMap();   // in case it was hidden at first init
+});
+addEventListener('load',()=>moveInd(tabrow.querySelector('.on')));
+addEventListener('resize',()=>moveInd(tabrow.querySelector('.on')));
+
+/* ============================================================
+   DAY-OF TIMELINE — vertical, in its own scroll area
+   ============================================================ */
+const ICONS={
+  door:'<path d="M14 3H6v18h8M14 3l4 2v14l-4 2M10 12h.01"/>',
+  ring:'<path d="M12 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM9 8l3-5 3 5"/>',
+  glass:'<path d="M8 3h8l-1 6a3 3 0 0 1-6 0L8 3zM12 12v8M9 21h6"/>',
+  music:'<path d="M9 18V6l10-2v12M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>',
+  plate:'<path d="M5 3v8a3 3 0 0 0 6 0V3M8 3v18M17 3c-1.5 2-2 4-2 6s.5 3 2 3 2-1 2-3-.5-4-2-6zM17 12v9"/>',
+  wave:'<path d="M12 21a9 9 0 0 0 9-9M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v7M8 13l-2-2a1.5 1.5 0 0 0-2 2l3 5"/>'
+};
+const SCHEDULE=[
+  {t:'3:30 PM', l:'DOORS OPEN',    i:'door'},
+  {t:'4:00 PM', l:'CEREMONY',      i:'ring'},
+  {t:'5:30 PM', l:'COCKTAIL HOUR', i:'glass'},
+  {t:'6:30 PM', l:'RECEPTION',     i:'music'},
+  {t:'7:00 PM', l:'DINNER',        i:'plate'},
+  {t:'9:00 PM', l:'SEND OFF',      i:'wave'},
+];
+document.getElementById('tlInner').innerHTML = SCHEDULE.map(s=>`
+  <div class="tl-stop">
+    <span class="node"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">${ICONS[s.i]}</svg></span>
+    <span><b>${s.t}</b><span>${s.l}</span></span>
+  </div>`).join('');
+
+/* ============================================================
+   MAP — Leaflet + OpenStreetMap tiles (no API key, no billing)
+   ============================================================ */
+const VENUE=[10.282000,123.996444];   // Jpark Island Resort & Waterpark
+let mapReady=false;
+function initMap(){
+  if(mapReady||!window.L) return;
+  const el=document.getElementById('map');
+  if(!el||!el.clientWidth) return;                 // container must have size
+  mapReady=true;
+  const m=L.map(el,{scrollWheelZoom:false}).setView(VENUE,15);   // page scroll must not zoom the map
+  // Plain OSM tiles — genuinely keyless. CARTO's basemaps now return an
+  // "API KEY REQUIRED" watermark image instead of map data. Desaturated via
+  // CSS on the tile pane only, so the attribution stays legible.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:19, crossOrigin:'anonymous'
+  }).addTo(m);
+  L.marker(VENUE,{icon:L.divIcon({className:'pin',html:'<span></span>',
+    iconSize:[15,15],iconAnchor:[8,8]})}).addTo(m)
+    .bindPopup('<b>Jpark Island Resort &amp; Waterpark</b><br>March 5, 2027');
+  setTimeout(()=>m.invalidateSize(),150);
+}
+
+/* ============================================================
+   COUNTDOWN  (client-side only — avoids hydration mismatch)
+   ============================================================ */
+const TARGET_DATE=new Date('2027-03-05T16:00:00+08:00');
+const TARGET=TARGET_DATE.getTime();
+/* Months are counted by calendar, not by dividing days — "5 months" has to
+   mean the same date next month, or it drifts against the wall calendar. */
+function tickCountdown(){
+  const now=new Date();
+  if(TARGET<=now.getTime()){ cdMo.textContent=cdD.textContent='0'; cdH.textContent=cdM.textContent=cdS.textContent='00'; return; }
+  let months=(TARGET_DATE.getFullYear()-now.getFullYear())*12 + (TARGET_DATE.getMonth()-now.getMonth());
+  const anchor=new Date(now); anchor.setMonth(now.getMonth()+months);
+  if(anchor>TARGET_DATE){ months--; anchor.setMonth(anchor.getMonth()-1); }
+  let rem=(TARGET-anchor.getTime())/1000;
+  const D=Math.floor(rem/86400), H=Math.floor(rem%86400/3600),
+        M=Math.floor(rem%3600/60), S=Math.floor(rem%60);
+  cdMo.textContent=months; cdD.textContent=D;
+  cdH.textContent=String(H).padStart(2,'0');
+  cdM.textContent=String(M).padStart(2,'0');
+  cdS.textContent=String(S).padStart(2,'0');
+}
+tickCountdown(); setInterval(tickCountdown,1000);
+
+/* ============================================================
+   SECTION NAV
+   ============================================================ */
+const navBtns=[...document.querySelectorAll('.secnav-items button')];
+/* `var`, and the buttons re-queried inside, because ScrollTrigger fires
+   onUpdate (which calls setSec) during create() — before any `let`/`const`
+   declared down here has left the temporal dead zone. */
+var curSec=-1;
+function setSec(i){
+  if(i===curSec) return;
+  curSec=i;
+  document.querySelectorAll('.secnav-items button').forEach((b,k)=>b.classList.toggle('on',k===i));
+  const light = i===2;                       // only the wedding panel is light
+  document.body.classList.toggle('on-light',light);
+  const c = light ? '#2A4300' : '#fff';
+  document.getElementById('secnav').style.color=c;
+  audioBtn.style.color=c;
+  // the logo goes near-black (not olive) on the wedding panel, matching its body text
+  document.getElementById('brand').style.color = light ? '#14180d' : '#fff';
+}
+navBtns.forEach(b=>{
+  b.onclick=()=>{
+    const to=b.dataset.go;
+    if(!hST) return document.getElementById(to).scrollIntoView({behavior:'smooth'});
+    // inside the pinned track, panels are scroll positions, not element offsets
+    const span=hST.end-hST.start;
+    const t = to==='intro'   ? hST.start
+            : to==='journey' ? hST.start+span*((P1+P2)/2)
+            :                  hST.end-2;
+    window.scrollTo({top:t,behavior:'smooth'});
+  };
+});
+addEventListener('scroll',()=>{
+  if(hST && hST.isActive) return;            // the track's onUpdate owns the state while pinned
+  if(!hST){                                  // mobile / reduced-motion: plain offsets
+    const y=scrollY+innerHeight*0.45;
+    let cur=0;
+    ['intro','journey','wedding'].forEach((s,i)=>{
+      const el=document.getElementById(s); if(el && el.offsetTop<=y) cur=i;
+    });
+    return setSec(cur);
+  }
+  setSec(scrollY < hST.start ? 0 : 2);
+},{passive:true});
+setSec(0);
+
+/* ============================================================
+   RSVP — phonetic-ish typeahead over the mock list
+   ============================================================ */
+const rsvp=document.getElementById('rsvp');
+document.getElementById('openRsvp').onclick=()=>{
+  rsvp.classList.add('on'); document.body.classList.add('rsvp-open');
+  document.body.style.overflow='hidden';
+};
+document.getElementById('closeRsvp').onclick=()=>{
+  rsvp.classList.remove('on'); document.body.classList.remove('rsvp-open');
+  document.body.style.overflow='';
+};
+
+const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+/* Stand-in for `double-metaphone` — the real build uses the library.
+   Enough to demo the cases that matter: Co→Kho, Chow→Chao, See→Sy, Wy→Uy, Ong→Ang. */
+function phon(s){
+  let t=norm(s); if(!t) return '';
+  t=t.replace(/^wr/,'r').replace(/^(kn|gn|pn)/,'n')
+     .replace(/ph/g,'f').replace(/sch/g,'sk')
+     .replace(/ch|kh|ck|q/g,'k').replace(/sh/g,'s')
+     .replace(/c/g,'k').replace(/x/g,'ks').replace(/z/g,'s')
+     .replace(/[wh]/g,'').replace(/y/g,'i');
+  if(!t) return '';
+  const head=/^[aeiou]/.test(t)?'a':t[0];
+  const rest=t.slice(1).replace(/[aeiou]/g,'');
+  return (head+rest).replace(/(.)\1+/g,'$1');
+}
+function score(q,g){
+  const nq=norm(q); if(nq.length<2) return 0;
+  const pq=phon(q);
+  // weighted: a phonetic hit on the SURNAME outranks an incidental substring elsewhere
+  const fields=[
+    {v:g.last, w:1.00}, {v:g.nick||'', w:.95}, {v:g.first, w:.90},
+    {v:g.first+' '+g.last, w:.90}, {v:g.last+' '+g.first, w:.90},
+  ].filter(f=>f.v);
+  let best=0;
+  for(const {v,w} of fields){
+    const nf=norm(v); let s=0;
+    if(nf===nq) s=100;
+    else if(nf.startsWith(nq)) s=90;
+    else if(nf.includes(nq)) s=68;
+    else if(pq && pq===phon(v)) s=78;          // phonetic
+    if(s) best=Math.max(best,s*w);
+  }
+  return best;
+}
+const qEl=document.getElementById('q'), suggEl=document.getElementById('sugg');
+let timer;
+qEl.addEventListener('input',()=>{
+  clearTimeout(timer);
+  timer=setTimeout(()=>{                       // 150ms debounce, as speced
+    const q=qEl.value;
+    if(norm(q).length<2){suggEl.innerHTML='';return;}
+    const hits=GUESTS.map(g=>({g,s:score(q,g)})).filter(x=>x.s>=50)
+                     .sort((a,b)=>b.s-a.s).slice(0,8);
+    suggEl.innerHTML = hits.length
+      ? hits.map(({g})=>`<button data-id="${g.id}">${g.first} ${g.last}${
+          STATE[g.id]?'<span class="done">✓ ALREADY RSVP\'D</span>':''}</button>`).join('')
+      : `<button disabled style="opacity:.45">No match — check the spelling or ask the couple</button>`;
+  },150);
+});
+suggEl.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-id]'); if(!b) return;
+  showParty(b.dataset.id);
+});
+
+const picks={};
+function showParty(id){
+  const me=GUESTS.find(g=>g.id===id);
+  const mates=GUESTS.filter(g=>g.party===me.party);
+  suggEl.innerHTML=''; qEl.value=`${me.first} ${me.last}`;
+
+  const prior=mates.find(m=>STATE[m.id]);
+  document.getElementById('banner').innerHTML = prior
+    ? `<div class="banner">We've got your RSVP from <b>${STATE[prior.id].at}</b>, submitted by ${STATE[prior.id].by}.<br>You can still update it — your previous answers are filled in below.</div>`
+    : '';
+  document.getElementById('plabel').textContent =
+    mates.length>1 ? `RESPONDING FOR ${me.label.toUpperCase()} — ${mates.length} GUESTS` : 'RESPONDING FOR YOURSELF';
+
+  document.getElementById('members').innerHTML = mates.map(m=>{
+    const st=STATE[m.id]?.status||null; picks[m.id]=st;
+    return `<div class="member">
+      <div class="who">${m.first} ${m.last}${m.id===me.id?' <span style="opacity:.45">(you)</span>':''}
+        ${STATE[m.id]?`<em>ANSWERED BY ${STATE[m.id].by.toUpperCase()} ON ${STATE[m.id].at.toUpperCase()}</em>`:''}
+      </div>
+      <div class="seg" data-for="${m.id}">
+        <button class="yes${st==='attending'?' on':''}" data-v="attending">ATTENDING</button>
+        <button class="no${st==='not_attending'?' on':''}" data-v="not_attending">CAN'T MAKE IT</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('send').textContent = prior ? 'UPDATE OUR RSVP' : 'SEND OUR RSVP';
+  document.getElementById('party').style.display='block';
+  checkReady();
+}
+document.getElementById('members').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-v]'); if(!b) return;
+  const seg=b.parentElement;
+  seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  picks[seg.dataset.for]=b.dataset.v;
+  checkReady();
+});
+function checkReady(){
+  const vals=Object.values(picks);
+  document.getElementById('send').disabled = vals.length===0 || vals.some(v=>!v);
+}
+document.getElementById('send').onclick=()=>{
+  const going=Object.values(picks).filter(v=>v==='attending').length;
+  document.getElementById('rbody').innerHTML=`
+    <div class="ok">
+      <div class="tick">✓</div>
+      <h3>THANK YOU</h3>
+      <p class="rsub" style="margin-top:2.4vh">
+        Your RSVP is in — ${going} attending.<br>
+        In the real build this appends a row to <b>RSVP_Log</b> and emails the couple.
+      </p>
+    </div>`;
+};
+</script>
+</body>
+</html>
