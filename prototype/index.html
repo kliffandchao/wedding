@@ -1,0 +1,2308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kliff &amp; Chao — March 5, 2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- General Sans: the closest free stand-in for Aeonik (farmminerals.com).
+     Aeonik itself is a paid CoType Foundry licence. For production, self-host
+     via next/font/local rather than depending on the Fontshare CDN in 2027. -->
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=general-sans@300,400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Pacifico&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<style>
+  /* ============================================================
+     Design tokens — decoded from website.pdf
+     canvas 854.55 x 468.45 ; 1 unit = 0.21347vh
+     ============================================================ */
+  :root{
+    /* --- colour. website2.0.pdf moves the palette to glass over greenery, and
+       every reference (Lovable, Verdro, TRUEARTH) sits in a brighter green than
+       the PDF's #2A4300. Olive is kept as the INK on the light panel; the
+       action colour is lifted two steps so a translucent tint still reads as
+       green rather than as grey. --- */
+    --olive:#2A4300;        /* deep ink — body text / logo on the light panel */
+    --green:#4F7A22;        /* solid fills, buttons on light backgrounds */
+    --lime:#9DCB5A;         /* highlights, active glass, focus rings */
+    --field:#E5E5E5;
+    --scrim:rgba(0,0,0,.40);
+    --muted:rgba(0,0,0,.50);
+    --nav-fs:clamp(9px,1.15vh,13px);
+
+    /* ============ GLASS =========================================
+       One primitive, two tints. `--g-*` sits on dark media (intro,
+       journey, gate, RSVP); `--gl-*` sits on the light wedding panel.
+       backdrop-filter needs something textured behind it to read at all —
+       see the blurred wash added under #wedding.
+       ============================================================ */
+    --g-fill:rgba(255,255,255,.10);
+    --g-fill-hi:rgba(255,255,255,.19);   /* active segment, hover */
+    --g-rim:rgba(255,255,255,.26);
+    --g-rim-soft:rgba(255,255,255,.13);
+    --g-blur:blur(20px) saturate(1.5);
+    /* the inner top highlight is what actually sells glass — a 1px lit edge */
+    --g-shadow:0 10px 34px rgba(0,0,0,.30),
+               inset 0 1px 0 rgba(255,255,255,.26),
+               inset 0 -1px 0 rgba(255,255,255,.06);
+    --gl-fill:rgba(255,255,255,.52);
+    --gl-fill-hi:rgba(255,255,255,.88);
+    --gl-rim:rgba(255,255,255,.70);
+    --gl-shadow:0 8px 28px rgba(28,40,14,.12),
+                inset 0 1px 0 rgba(255,255,255,.85);
+
+    /* --- tracking, after farmminerals.com ---
+       They set headings NEGATIVE (-.01 to -.03em) and reserve positive
+       tracking for small caps labels (.08-.16em). The PDF's original look was
+       uniformly wide (.2-.34em); this is the deliberate departure. */
+    --ls-display:-.02em;    /* big type: lockup, chapter titles, the date */
+    --ls-head:-.01em;       /* mid headings */
+    --ls-label:.14em;       /* small caps: nav, tabs, captions, counters */
+    --ls-label-wide:.18em;  /* the few that need extra air (buttons) */
+    --nav-ls:var(--ls-label);
+
+    /* --- motion + line system, after farmminerals.com ---
+       .3s is their house default; the cubic-bezier is a strong ease-out they
+       reserve for transforms. Using tokens so the feel is tunable in one place. */
+    --dur:.3s;
+    --dur-slow:.55s;
+    --ease-out:cubic-bezier(.16,1,.3,1);
+    --ease:ease;
+
+    /* hairlines: very low-opacity rules rather than visible borders */
+    --line-dark:rgba(255,255,255,.10);
+    --line-dark-strong:rgba(255,255,255,.30);
+    --line-light:#e7e9e2;
+
+    /* em-based radii so corners scale with type size */
+    --r-sm:.31em;
+    --r:.4em;
+    --r-lg:.63em;
+    --r-pill:62.5em;
+    /* px radii for glass CONTAINERS. These must not scale with the type inside
+       them — a 22px corner on a bar and on a card has to match, and em radii
+       drift apart the moment the two hold different font sizes. */
+    --rc:14px;
+    --rc-lg:22px;
+    --rc-xl:30px;
+  }
+
+  /* ---------- the glass primitive ----------
+     Applied via .g / .g-l rather than repeated per component, so the whole
+     site's glass can be retuned from the tokens above.
+     -webkit- prefix is still required: iOS < 18 ships backdrop-filter only
+     behind it, and that is a large share of the guest list. */
+  .g{
+    background:var(--g-fill);
+    -webkit-backdrop-filter:var(--g-blur);
+            backdrop-filter:var(--g-blur);
+    border:1px solid var(--g-rim);
+    box-shadow:var(--g-shadow);
+  }
+  .g-l{
+    background:var(--gl-fill);
+    -webkit-backdrop-filter:var(--g-blur);
+            backdrop-filter:var(--g-blur);
+    border:1px solid var(--gl-rim);
+    box-shadow:var(--gl-shadow);
+  }
+  /* No backdrop-filter (older Android WebView, Firefox with the flag off):
+     fall back to a heavier flat fill so the rim still has something to sit on
+     and white label text keeps its contrast. */
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .g{background:rgba(22,30,14,.62)}
+    .g-l{background:rgba(255,255,255,.86)}
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:auto}
+  body{
+    font-family:'General Sans',Montserrat,system-ui,sans-serif;
+    background:#000;color:#fff;overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  img,video{display:block;width:100%;height:100%;object-fit:cover}
+  button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  input{font-family:inherit}
+
+  /* ---------- shared chrome ----------
+     website2.0.pdf §2: "There should be a geometric like the top headers to
+     show logo, rsvp and the area for intro - journey - wedding scroll".
+     So the three pieces that used to float separately (logo top-left, RSVP
+     top-right, stepper bottom-centre) now live in ONE glass bar across the
+     top, after the header in the Verdro reference. --- */
+
+  /* The SVG is injected inline (see bootLogos) and its paths use
+     `fill:currentColor`, so one file serves both the dark sections and the
+     light wedding panel. Inlining avoids depending on mask-image support. */
+  .logo{display:block;line-height:0}
+  .logo svg{width:100%;height:auto;display:block;fill:currentColor}
+
+  /* NO surface of its own — it is a transparent positioning rail. Each of the
+     three pieces carries its own glass (or none): the wordmark is bare, the
+     section selector is one glass pill, RSVP is a separate glass pill. */
+  .topbar{
+    position:fixed;left:50%;transform:translateX(-50%);top:2.4vh;z-index:60;
+    width:min(95vw,1240px);
+    display:flex;align-items:center;gap:clamp(10px,1.6vw,24px);
+    color:#fff;pointer-events:none;
+  }
+  .topbar > *{pointer-events:auto}
+  /* the wordmark, doubling as the home button */
+  .topbar .brand{
+    flex:none;width:clamp(34px,5vh,52px);cursor:pointer;
+    filter:drop-shadow(0 1px 6px rgba(0,0,0,.35));
+  }
+  body.on-light .topbar .brand{filter:none}
+  .topbar .navwrap{flex:1 1 auto;display:flex;justify-content:center;min-width:0}
+
+  /* --- segmented glass nav. The capsule is the scroll position indicator:
+     it slides CONTINUOUSLY with the track (see paintNavInd), so the bar
+     doubles as "the area for intro - journey - wedding scroll". --- */
+  .secnav-items{
+    position:relative;display:flex;width:min(52vw,420px);
+    border-radius:var(--r-pill);padding:3px;
+    background:var(--g-fill);
+    -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+    border:1px solid var(--g-rim);box-shadow:var(--g-shadow);
+    transition:background var(--dur-slow) var(--ease),
+               border-color var(--dur-slow) var(--ease),
+               box-shadow var(--dur-slow) var(--ease);
+  }
+  body.on-light .secnav-items{
+    background:var(--gl-fill);border-color:var(--gl-rim);box-shadow:var(--gl-shadow);
+  }
+  .secnav-items .navind{
+    position:absolute;left:3px;top:3px;bottom:3px;width:calc((100% - 6px)/3);
+    border-radius:var(--r-pill);background:var(--g-fill-hi);
+    border:1px solid var(--g-rim);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
+    pointer-events:none;
+    /* GSAP writes `transform` on this during scrub, so no transform
+       transition here — it would fight the scrub and lag a frame behind. */
+  }
+  body.on-light .secnav-items .navind{
+    background:rgba(255,255,255,.95);border-color:#fff;
+    box-shadow:0 2px 8px rgba(28,40,14,.12);
+  }
+  .secnav-items button{
+    position:relative;z-index:1;flex:1;
+    padding:clamp(7px,1.05vh,11px) 0;border-radius:var(--r-pill);
+    font-size:var(--nav-fs);letter-spacing:var(--nav-ls);font-weight:400;
+    opacity:.66;transition:opacity .25s;white-space:nowrap;
+  }
+  .secnav-items button.on{opacity:1;font-weight:600}
+  .secnav-items button:focus-visible{outline:1px solid var(--lime);outline-offset:2px}
+
+  .rsvp-pill{
+    flex:none;border-radius:var(--r-pill);
+    padding:clamp(8px,1.15vh,13px) clamp(16px,2.4vh,30px);
+    font-weight:600;letter-spacing:var(--ls-label);
+    font-size:clamp(10px,1.35vh,14px);color:#fff;
+    background:var(--g-fill-hi);border:1px solid var(--g-rim);
+    -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+    box-shadow:var(--g-shadow);
+    transition:transform var(--dur) var(--ease-out),
+               background var(--dur) var(--ease);
+  }
+  .rsvp-pill:hover{transform:translateY(-1px);background:rgba(255,255,255,.30)}
+  body.on-light .rsvp-pill{
+    background:var(--green);border-color:transparent;color:#fff;
+    box-shadow:0 4px 16px rgba(42,67,0,.22);
+  }
+  body.on-light .rsvp-pill:hover{background:#5d8d28}
+
+  /* audio toggle — a glass disc, bottom left */
+  .audio-btn{
+    position:fixed;left:3.2vw;bottom:4.4vh;z-index:60;
+    display:flex;align-items:center;gap:3px;
+    width:clamp(40px,5.4vh,52px);height:clamp(40px,5.4vh,52px);
+    justify-content:center;border-radius:50%;padding:0;
+    transition:transform var(--dur) var(--ease-out);
+  }
+  .audio-btn:hover{transform:scale(1.06)}
+  /* One state visible at a time: bars while it plays, a crossed speaker when
+     muted. Showing both at once inside a 48px disc left no room for either. */
+  .audio-btn .spk{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;display:none}
+  .audio-btn .spk .wave{display:none}
+  .audio-btn.muted .spk{display:block}
+  .audio-btn.muted .eq{display:none}
+  .audio-btn .eq{display:flex;align-items:flex-end;gap:2.5px;height:15px}
+  .audio-btn .eq i{
+    width:2.5px;background:currentColor;border-radius:1px;display:block;
+    animation:eq .9s ease-in-out infinite alternate;
+  }
+  .audio-btn .eq i:nth-child(1){height:40%;animation-delay:-.4s}
+  .audio-btn .eq i:nth-child(2){height:100%;animation-delay:-.15s}
+  .audio-btn .eq i:nth-child(3){height:62%;animation-delay:-.65s}
+  .audio-btn .eq i:nth-child(4){height:82%;animation-delay:-.3s}
+  @keyframes eq{from{transform:scaleY(.30)}to{transform:scaleY(1)}}
+  .audio-hint{
+    position:fixed;left:calc(3.2vw + clamp(48px,6.2vh,62px));bottom:6.1vh;z-index:60;
+    font-size:10px;letter-spacing:.14em;opacity:0;pointer-events:none;white-space:nowrap;
+    padding:7px 13px;border-radius:var(--r-pill);
+  }
+
+  /* ============================================================
+     1 — PASSWORD GATE
+     input & button: 207.1u wide (24.2vw), 28.9u tall (6.17vh)
+     ============================================================ */
+  #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;transition:opacity .9s ease}
+  #gate .bg{position:absolute;inset:0}
+  #gate .bg::after{content:"";position:absolute;inset:0;background:var(--scrim)}
+  #gate .stack{
+    position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;
+    width:clamp(288px,44vw,660px);text-align:center;transition:opacity .4s ease;
+  }
+
+  /* --- ambient motion on the gate: drifting photo, swaying grass, pollen --- */
+  #gate .bg img{animation:gateDrift 42s ease-in-out infinite alternate;transform-origin:52% 62%}
+  @keyframes gateDrift{
+    from{transform:scale(1.05) translate3d(0,0,0)}
+    to  {transform:scale(1.13) translate3d(-1.4%,-1%,0)}
+  }
+  .grass{
+    position:absolute;left:0;right:0;bottom:0;z-index:2;
+    width:100%;height:clamp(90px,17vh,190px);pointer-events:none;
+  }
+  .grass path{
+    fill:rgba(16,28,6,.5);
+    transform-box:fill-box;transform-origin:50% 100%;   /* pivot at each blade's base */
+    animation:sway ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  @keyframes sway{from{transform:rotate(-2.4deg)}to{transform:rotate(2.8deg)}}
+  /* canvas is a replaced element: inset:0 alone leaves it at its intrinsic
+     300x150, so the width/height are required. */
+  .motes{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+
+  /* --- birds. website2.0.pdf §1.1 lists "birds flying" alongside particles and
+     wind, so all three run. Each bird is one double-arc path; flapping is a
+     scaleY on the svg, which is far cheaper than morphing `d` and reads the
+     same at this size. Positions/durations are set inline by buildBirds(). --- */
+  .birds{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+  .bird{
+    position:absolute;left:0;display:block;
+    animation:flyAcross linear infinite;
+    will-change:transform;
+  }
+  .bird svg{
+    width:100%;height:100%;display:block;overflow:visible;
+    stroke:rgba(255,255,255,.62);fill:none;stroke-width:1.5;
+    stroke-linecap:round;
+    animation:flap ease-in-out infinite alternate;
+  }
+  /* -18vw start / 118vw end: both wholly off-screen, so a bird never pops into
+     existence mid-frame. */
+  @keyframes flyAcross{
+    from{transform:translate3d(-18vw,0,0)}
+    to  {transform:translate3d(118vw,-9vh,0)}
+  }
+  @keyframes flap{from{transform:scaleY(.42)}to{transform:scaleY(1.12)}}
+  /* --- website2.0.pdf §1.3: open with a welcome line, then a prompt, then the
+     field. §1.2: rounded + glass. The composition follows the Lovable
+     reference: one wide glass bar holding the field, with a round submit
+     button seated at its right edge. --- */
+  #gate .ginvite{
+    font-weight:500;letter-spacing:var(--ls-display);line-height:1.02;
+    font-size:clamp(28px,6.4vh,64px);
+    text-shadow:0 3px 26px rgba(0,0,0,.45);
+  }
+  #gate .ginvite em{font-style:italic;font-weight:400}
+  #gate .gprompt{
+    margin-top:2.1vh;font-size:clamp(10px,1.42vh,14px);
+    letter-spacing:var(--ls-label);opacity:.82;line-height:1.9;
+    text-shadow:0 2px 14px rgba(0,0,0,.4);
+  }
+  #gate .gbar{
+    margin-top:4.4vh;width:100%;display:flex;align-items:center;
+    gap:clamp(6px,.6vw,10px);
+    padding:clamp(5px,.62vh,8px);padding-left:clamp(12px,1.3vw,20px);
+    border-radius:var(--r-pill);
+    transition:border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  #gate .gbar:focus-within{
+    border-color:rgba(255,255,255,.52);
+    box-shadow:var(--g-shadow), 0 0 0 4px rgba(157,203,90,.16);
+  }
+  #gate input{
+    flex:1 1 auto;min-width:0;height:clamp(42px,5.7vh,58px);
+    background:none;border:0;outline:0;color:#fff;
+    padding:0 clamp(4px,.5vw,10px);text-align:left;letter-spacing:.16em;
+    /* iOS Safari auto-zooms any focused input below 16px and never zooms back
+       out — which left the whole site scaled up after unlocking. 16px floor
+       prevents the zoom entirely; don't drop it. */
+    font-size:max(16px, clamp(12px,1.62vh,17px));
+  }
+  #gate input::placeholder{color:rgba(255,255,255,.42);letter-spacing:.16em}
+  #gate .gsend{
+    flex:none;display:grid;place-items:center;
+    width:clamp(42px,5.7vh,58px);height:clamp(42px,5.7vh,58px);
+    border-radius:50%;background:rgba(255,255,255,.94);color:#1a2410;
+    box-shadow:0 4px 16px rgba(0,0,0,.3), inset 0 1px 0 #fff;
+    transition:transform var(--dur) var(--ease-out), background var(--dur) var(--ease);
+  }
+  #gate .gsend svg{width:46%;height:46%;stroke:currentColor;fill:none;stroke-width:2.1}
+  #gate .gsend:hover{transform:scale(1.07);background:#fff}
+  #gate .gsend:active{transform:scale(.97)}
+  /* sits at the top of the gate, centred — not inside the input stack */
+  #gate .gatelogo{
+    position:absolute;left:50%;top:6vh;transform:translateX(-50%);z-index:3;
+    width:clamp(96px,16vh,164px);
+    color:#fff !important;                 /* always white over the photo */
+    filter:drop-shadow(0 3px 18px rgba(0,0,0,.45));
+  }
+  #gate .gatelogo svg{fill:#fff}
+
+  /* 0-100 loader, shown after a correct password */
+  #loader{
+    position:absolute;inset:0;z-index:4;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:3vh;
+  }
+  #loader.on{display:flex}
+  #loader .lnum{
+    font-weight:300;font-size:clamp(46px,13vh,130px);letter-spacing:var(--ls-display);
+    font-variant-numeric:tabular-nums;line-height:1;
+    text-shadow:0 4px 24px rgba(0,0,0,.45);
+  }
+  #loader .lnum sup{font-size:.3em;font-weight:500;vertical-align:super;opacity:.75;margin-left:.15em}
+  #loader .lbar{
+    width:clamp(180px,22vw,340px);height:5px;border-radius:var(--r-pill);
+    background:rgba(255,255,255,.16);border:1px solid var(--g-rim-soft);
+    overflow:hidden;
+  }
+  #loader .lbar i{
+    display:block;height:100%;width:0;border-radius:var(--r-pill);
+    background:linear-gradient(90deg,rgba(255,255,255,.7),#fff);
+    transition:width .18s linear;
+  }
+  #loader .lcap{font-size:9.5px;letter-spacing:var(--ls-label-wide);opacity:.7}
+  #gate .err{height:0;overflow:hidden;font-size:11px;letter-spacing:.14em;color:#ffc2b6;margin-top:2vh;transition:height .2s}
+  #gate .err.show{height:20px}
+  #gate .hint{
+    position:absolute;bottom:4vh;z-index:3;
+    font-size:10px;letter-spacing:var(--ls-label);opacity:.75;
+    padding:9px 18px;border-radius:var(--r-pill);
+  }
+
+  /* ============================================================
+     2 — INTRO
+     ============================================================ */
+  #intro{position:relative;height:100vh;overflow:hidden}
+  #intro .bg{position:absolute;inset:0;overflow:hidden;animation:kb 26s ease-in-out infinite alternate}
+  /* intro-web.mp4 = intro2.mp4 transcoded for web (2051MB -> 11.8MB), trimmed
+     to the 109s of real content (the source has ~54s of black on the end).
+     Footage is text-free and already graded, so the live layers below fully
+     own the lockup and verse. img/intro.jpg is kept as a still fallback. */
+  /* The couple sits left-of-centre in most shots (the man is as far left as 2%
+     at ~16s). On tall/narrow viewports `cover` crops ~20% off each side and cuts
+     him out, so bias the crop window left. No effect on 16:9 screens, where
+     there is no horizontal cropping to begin with. */
+  #intro .bg video{object-position:25% center}
+  #intro .bg::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(to bottom,transparent 46%,rgba(10,14,8,.34) 74%,rgba(8,11,6,.62) 100%);
+  }
+  @keyframes kb{from{transform:scale(1.03)}to{transform:scale(1.11)}}
+
+  /* Verse bottom-right on web. `flex-end`, not `space-between`: the brush
+     lockup that used to sit bottom-left now lives in the top bar, and with one
+     child left `space-between` silently parked the verse at the LEFT edge. */
+  #intro .plate{
+    position:absolute;inset:0;display:flex;align-items:flex-end;
+    justify-content:flex-end;gap:5vw;padding:0 3.4vw 9.5vh;
+  }
+  /* the real wordmark, not the Pacifico stand-in */
+  #intro .lockup{
+    flex:none;width:clamp(120px,19vh,210px);color:#fff;
+    filter:drop-shadow(0 2px 18px rgba(0,0,0,.45));
+  }
+  /* margin-left:auto as well as the parent's flex-end — belt and braces. This
+     block has been knocked to the left edge once already, when the lockup that
+     used to sit beside it was removed and `space-between` was left behind. */
+  .versecol{
+    display:flex;flex-direction:column;align-items:flex-end;gap:.9vh;
+    max-width:min(48vw,540px);margin-left:auto;
+  }
+  .verse{
+    cursor:pointer;text-align:right;width:100%;
+    font-size:clamp(8.5px,1.22vh,13px);letter-spacing:.115em;line-height:1.95;
+    text-transform:uppercase;font-weight:600;color:#fff;
+    text-shadow:0 2px 14px rgba(0,0,0,.42);
+    transition:opacity .34s ease;padding:.8vh 0;
+  }
+  .verse:hover{opacity:.7}
+  .verse:focus-visible{outline:1px solid rgba(255,255,255,.55);outline-offset:6px}
+  .verse .ref{
+    display:block;margin-top:1.1vh;
+    font-size:clamp(7.5px,1.02vh,11px);letter-spacing:var(--ls-label);opacity:.8;
+  }
+  .verse-hint{
+    font-size:8.5px;letter-spacing:var(--ls-label);opacity:0;transition:opacity .6s ease;
+    pointer-events:none;text-align:right;
+  }
+  @media (max-width:768px){
+    /* verse centred and a size up — it was small and left-hugging on a phone */
+    #intro .plate{flex-direction:column;align-items:center;justify-content:flex-end;gap:3vh;padding-bottom:15vh}
+    .versecol{align-items:center;max-width:none;width:100%}
+    .verse,.verse-hint{text-align:center}
+    .verse{font-size:clamp(11px,3.1vw,15px);line-height:2.05;letter-spacing:.1em}
+    .verse .ref{font-size:clamp(9px,2.5vw,12px);margin-top:1.6vh}
+  }
+  .vidnote{
+    position:absolute;right:3.2vw;bottom:5.2vh;font-size:9px;letter-spacing:.14em;
+    opacity:.4;z-index:5;
+  }
+
+  /* ============================================================
+     3 — JOURNEY : glass coverflow
+     website2.0.pdf §3: "Instead of the wheel can you change it to something
+     like this?" — the reference is a glass segmented chapter selector above a
+     horizontal rail of tall rounded photo cards, the centre one forward and
+     its neighbours scaled back and bleeding off both screen edges.
+     The 188vh circle decoded from website.pdf is retired.
+     ============================================================ */
+  #journey{position:relative;height:100vh;overflow:hidden;background:#0d0f0a}
+  #journey .jbg{position:absolute;inset:0;opacity:.7;overflow:hidden}
+  #journey .jbg img{animation:gateDrift 52s ease-in-out infinite alternate;transform-origin:48% 58%}
+  #journey .jbg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.82))}
+  /* same ambience as the gate, dialled back so it sits behind the timeline */
+  /* z-index 0, not the base 2 — the coverflow and copy must stay in front */
+  #journey .grass{height:clamp(70px,13vh,150px);z-index:0}
+  #journey .grass path{fill:rgba(10,20,3,.45)}
+  #journey .motes{z-index:0}
+
+  /* Full-bleed layout box. GSAP's parallax writes `transform` on this element,
+     so it must NOT be centred with translateX(-50%) — that gets wiped and the
+     content lands off the right edge. inset:0 + flex centring instead. */
+  .jcontent{
+    position:absolute;inset:0;z-index:3;
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    /* Centre the whole group in the space below the bar. Top-packing left a
+       large void under the copy; the copy still sits tight to the photo
+       because .flow is a fixed height rather than a flex:1 filler. */
+    justify-content:center;
+    /* clear the fixed top bar: its top offset + its height + breathing room */
+    padding:calc(2.4vh + clamp(52px,7.4vh,76px) + 3.2vh) 0 3vh;
+  }
+
+  /* --- chapter stepper: a hairline rule with one circle per chapter.
+     No glass here — the glass pill read as a second copy of the top nav, and
+     the stepper keeps the hairline language from the original design. The rule
+     spans circle-centre to circle-centre, i.e. 1/10 to 9/10 for 5 chapters. --- */
+  .chapsel{
+    position:relative;flex:none;display:flex;
+    width:min(86vw,620px);
+  }
+  /* The dot is 7px tall starting at y=0, so its centre is 3.5; the 1px rule at
+     top:3 has its centre at 3.5 too. Keep these two numbers in step or the
+     dots float off the line. */
+  .chapsel .chaprule{
+    position:absolute;left:10%;right:10%;top:3px;height:1px;
+    background:currentColor;opacity:.3;pointer-events:none;
+  }
+  /* Each item is one equal column owning both its dot and its label, so the
+     two can never drift apart as the labels change width. */
+  .chapsel button{
+    position:relative;flex:1;display:flex;flex-direction:column;
+    align-items:center;gap:1.15vh;padding:0 0 4px;
+    font-size:clamp(7.5px,.98vh,10px);letter-spacing:var(--ls-label);
+    opacity:.45;transition:opacity .28s;white-space:nowrap;
+  }
+  .chapsel button.on{opacity:1;font-weight:600}
+  .chapsel button:hover{opacity:.8}
+  .chapsel button.on:hover{opacity:1}
+  .chapsel button:focus-visible{outline:none}
+  .chapsel button:focus-visible .cdot{box-shadow:0 0 0 4px rgba(157,203,90,.45)}
+  .chapsel .cdot{
+    width:7px;height:7px;border-radius:50%;background:currentColor;
+    transition:transform .32s var(--ease-out);
+  }
+  .chapsel button.on .cdot{transform:scale(1.85)}
+
+  /* --- the coverflow rail ---
+     Desktop: every card is absolutely centred and pushed out by a transform
+     that render() recomputes, so there is exactly one positioned layer per
+     card and no layout work during the scrub. Mobile swaps to native
+     scroll-snap (see the media query). */
+  .flow{
+    --cw:min(31vw,400px);
+    --ch:min(50vh,470px);
+    /* flex:none + an explicit height, NOT flex:1. As a flex:1 item it absorbed
+       all the column's slack and pushed the story copy down to the bottom edge
+       of the screen; the copy has to sit just under the photo. The cards are
+       absolutely positioned at top:50%, so the height must be explicit. */
+    position:relative;flex:none;width:100%;height:var(--ch);margin-top:2.6vh;
+    /* horizontal drag is a supported gesture on desktop — advertise it */
+    cursor:grab;
+  }
+  .flow:active{cursor:grabbing}
+  .cf{
+    position:absolute;left:50%;top:50%;
+    width:var(--cw);height:var(--ch);
+    margin-left:calc(var(--cw) / -2);margin-top:calc(var(--ch) / -2);
+    border-radius:var(--rc-xl);overflow:hidden;cursor:pointer;text-align:left;
+    background:#1a1f12;
+    transition:transform var(--dur-slow) var(--ease-out),
+               opacity var(--dur) var(--ease),
+               box-shadow var(--dur) var(--ease);
+    will-change:transform,opacity;
+  }
+  .cf img{width:100%;height:100%;object-fit:cover}
+  /* The rim is its own layer, not a border on .cf: a border would sit outside
+     the overflow-clipped photo and the 30px corner would show a hairline gap. */
+  .cf .rim{
+    position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    border:1px solid var(--g-rim);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .cf .veil{
+    position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,
+      rgba(6,10,4,.62) 0%, rgba(6,10,4,.06) 34%,
+      rgba(6,10,4,.10) 52%, rgba(6,10,4,.78) 100%);
+  }
+  .cf .top,.cf .bot{position:absolute;left:0;right:0;padding:clamp(14px,2vh,24px) clamp(14px,1.5vw,24px)}
+  .cf .top{top:0}
+  /* No round arrow disc here any more. It looked like a button, sat in the
+     canonical button position, and did nothing — the whole card is the target. */
+  .cf .bot{bottom:0}
+  .cf .tag{font-size:8.5px;letter-spacing:var(--ls-label);opacity:.72;margin-bottom:1vh}
+  .cf .ttl{
+    font-weight:600;font-size:clamp(13px,2.05vh,22px);
+    letter-spacing:var(--ls-head);line-height:1.2;
+  }
+  .cf .count{
+    font-size:9.5px;letter-spacing:var(--ls-label);opacity:.85;
+    font-variant-numeric:tabular-nums;
+  }
+  .cf.on{box-shadow:0 30px 74px rgba(0,0,0,.58)}
+  .cf:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+
+  /* prev / next — glass discs flanking the rail. They step a whole CHAPTER. */
+  .jnav{
+    position:absolute;top:50%;z-index:6;border-radius:50%;
+    width:clamp(40px,5.2vh,52px);height:clamp(40px,5.2vh,52px);
+    display:grid;place-items:center;transform:translateY(-50%);
+    transition:transform var(--dur) var(--ease-out), background var(--dur) var(--ease);
+  }
+  .jnav.prev{left:2.4vw}
+  .jnav.next{right:2.4vw}
+  .jnav svg{width:36%;height:36%;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+  /* the translateY has to be restated — a bare `scale()` here would drop it */
+  .jnav:hover{transform:translateY(-50%) scale(1.07);background:rgba(255,255,255,.26)}
+
+  /* sits directly under the photo, not pinned to the bottom of the screen */
+  .jcopy{
+    flex:none;margin-top:2.6vh;max-width:min(78vw,660px);
+    font-size:clamp(9px,1.3vh,13px);line-height:1.8;letter-spacing:.1em;
+    text-transform:uppercase;opacity:.84;
+  }
+  .jfade{transition:opacity .32s ease}
+
+  /* ============================================================
+     5-7 — WEDDING
+     ============================================================ */
+  /* Journey and wedding sit side by side; vertical scroll drives the track
+     sideways. Desktop only — mobile falls back to normal stacking below. */
+  #hpin{height:100vh;overflow:hidden}
+  #htrack{display:flex;width:300vw;height:100vh;will-change:transform}
+  #htrack > section{width:100vw;flex:none}
+  #intro,#journey,#wedding{height:100vh}
+  /* Tabs stay pinned; only the panel content scrolls. Otherwise a long tab
+     (FAQ) scrolls the tab bar off the top and the gap under the logo jumps
+     between tabs. This is the behaviour the motif tab already had. */
+  #wedding{overflow:hidden;display:flex;flex-direction:column}
+
+  #wedding{position:relative;background:#f5f3ed;color:#14180d;padding:11vh 0 10vh}
+  /* backdrop-filter has nothing to refract over a flat fill, so light glass on
+     a plain cream panel renders as grey haze. A heavily blurred, desaturated
+     copy of the journey photo gives the glass something to pick up while
+     staying quiet enough to read body text over. */
+  #wedding::before{
+    content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(120% 90% at 82% 6%, rgba(157,203,90,.42), transparent 58%),
+      radial-gradient(90% 75% at 4% 98%, rgba(79,122,34,.30), transparent 56%),
+      url(img/p1_Im0.jpg) center/cover no-repeat;
+    /* Strong brightness + low opacity: the wash only has to give the glass
+       something to refract. Any darker and the panel reads as grey haze and
+       the frosted countdown cells stop separating from it. */
+    filter:blur(52px) saturate(.6) brightness(1.75);
+    opacity:.34;
+  }
+  /* named children, not `> *` — see the note on #rsvp .rwrap below */
+  #wedding .tabs,#wedding .panel{position:relative;z-index:1}
+  #wedding .audio-btn{color:var(--olive)}
+
+  /* --- tabs. Deliberately NOT the same object as the top bar's section nav:
+     no surface, no capsule — bare labels on a hairline, opacity carrying the
+     active state, with a solid underline sliding between them. Two identical
+     glass pills stacked 40px apart read as one broken control. --- */
+  .tabs{display:flex;flex-direction:column;align-items:center;flex:none;padding:0 4vw}
+  .tabrow{
+    position:relative;display:flex;gap:clamp(13px,2.5vw,40px);
+    max-width:100%;padding-bottom:11px;
+  }
+  /* the hairline track. No overflow scrolling on .tabrow — an absolutely
+     positioned rule inside a scroll container anchors to the scroll origin and
+     slides away from the labels. The five labels are sized to fit instead. */
+  .tabrow::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:rgba(20,24,13,.17);
+  }
+  .tabrow button{
+    position:relative;white-space:nowrap;padding:2px 1px;
+    font-size:clamp(8.5px,1.1vh,12px);letter-spacing:var(--ls-label);
+    color:#14180d;opacity:.4;transition:opacity .28s var(--ease);
+  }
+  .tabrow button:hover{opacity:.72}
+  .tabrow button.on{opacity:1;font-weight:600}
+  .tabrow button:focus-visible{outline:1px solid var(--green);outline-offset:3px}
+  .tabrow .ind{
+    position:absolute;left:0;bottom:0;width:0;height:2px;z-index:1;
+    background:#14180d;pointer-events:none;
+    transition:transform .42s var(--ease-out), width .42s var(--ease-out);
+  }
+  .panel{display:none;text-align:center;padding:5vh 6vw 4vh}
+  .panel.on{
+    flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:none;
+  }
+  .panel.on::-webkit-scrollbar{display:none}
+  .panel.on{display:block;animation:fadeup .5s ease both}
+  @keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  .bigdate{font-weight:600;letter-spacing:var(--ls-display);font-size:clamp(20px,3.6vh,40px)}
+  .countdown{display:flex;justify-content:center;gap:clamp(7px,1.1vw,16px);margin:3.2vh 0 3.4vh;flex-wrap:wrap}
+  .countdown div{
+    display:flex;flex-direction:column;gap:.6vh;border-radius:var(--rc);
+    padding:clamp(9px,1.4vh,17px) clamp(11px,1.5vw,24px);min-width:clamp(58px,7.4vw,96px);
+  }
+  .countdown b{font-weight:600;font-size:clamp(20px,3.9vh,44px);letter-spacing:var(--ls-display);font-variant-numeric:tabular-nums;line-height:1}
+  .countdown span{font-size:8.5px;letter-spacing:var(--ls-label);color:var(--muted)}
+  /* Live embedded map. The PDF block is 237.6x96.2 (~2.47:1) which reads as a
+     button, not a usable map — widened the ratio a little so it's pannable. */
+  .mapwrap{
+    width:clamp(260px,34vw,520px);margin:3.2vh auto 0;
+    border-radius:var(--rc-lg);overflow:hidden;
+    background:var(--gl-fill);border:1px solid var(--gl-rim);
+    box-shadow:var(--gl-shadow);padding:5px;
+  }
+  .mapwrap #map{width:100%;aspect-ratio:5/2;background:#e7e9e2;border-radius:calc(var(--rc-lg) - 6px)}
+  /* desaturate the tiles only — leaves Leaflet's attribution/controls legible */
+  .mapwrap .leaflet-tile-pane{filter:grayscale(.85) contrast(.92) brightness(1.04)}
+  .mapwrap .leaflet-container{font-family:Montserrat,sans-serif}
+  .pin span{
+    display:block;width:15px;height:15px;border-radius:50%;background:var(--olive);
+    box-shadow:0 0 0 4px rgba(42,67,0,.22),0 1px 5px rgba(0,0,0,.45);
+  }
+  .mapfoot{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    width:clamp(260px,34vw,520px);margin:1.4vh auto 0;flex-wrap:wrap;
+  }
+  .mapfoot .addr{font-size:clamp(9px,1.18vh,12px);letter-spacing:.1em;color:#4a5140;text-align:left}
+  .directions{
+    background:var(--green);color:#fff;padding:1.25vh 2.4vh;border-radius:var(--r-pill);
+    font-weight:600;letter-spacing:var(--ls-label);font-size:clamp(8.5px,1.08vh,11px);
+    white-space:nowrap;text-decoration:none;
+    box-shadow:0 4px 16px rgba(42,67,0,.2);
+    transition:background .2s,transform .18s;
+  }
+  .directions:hover{background:#5d8d28;transform:translateY(-1px)}
+  @media (max-width:768px){
+    .mapwrap iframe{aspect-ratio:4/3}
+    .mapfoot{justify-content:center}
+    .mapfoot .addr{text-align:center}
+  }
+
+  .tl-intro{font-size:clamp(10px,1.35vh,14px);line-height:1.9;color:#3a4030}
+
+  /* Vertical timeline in its own scroll area. The wheel scrolls this list
+     while the cursor is over it and only hands back to the page at the ends. */
+  /* Desktop shows all six stops — there is room, and a nested scrollbar in a
+     half-empty panel is friction for nothing. The scroll area is mobile-only. */
+  .tl{
+    position:relative;margin:3vh auto 0;width:min(80vw,330px);
+    height:auto;overflow:visible;overscroll-behavior:contain;
+    scrollbar-width:none;
+  }
+  .tl::-webkit-scrollbar{display:none}
+  .tl-inner{position:relative;padding:1vh 0}
+  .tl-inner::before{                       /* the spine */
+    /* 1.6rem is .tl-stop's left padding; 12.5px centres on the 25px node */
+    content:"";position:absolute;left:calc(1.6rem + 12.5px);top:0;bottom:0;
+    width:1px;background:rgba(20,24,13,.2);
+  }
+  .tl-stop{
+    position:relative;display:grid;grid-template-columns:auto 1fr;
+    gap:0 1.5rem;align-items:center;padding:1.7vh 1.4rem 1.7vh 1.6rem;text-align:left;
+    border-radius:var(--rc-lg);margin-bottom:1vh;
+    transition:background var(--dur) var(--ease);
+  }
+  .tl-stop:hover{background:rgba(255,255,255,.5)}
+  .tl-stop .node{
+    width:25px;height:25px;border-radius:50%;background:var(--green);color:#fff;
+    display:grid;place-items:center;flex:none;z-index:1;
+    box-shadow:0 0 0 5px #f5f3ed, 0 2px 8px rgba(42,67,0,.3);
+  }
+  .tl-stop .node svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .tl-stop b{display:block;font-weight:600;font-size:clamp(11px,1.5vh,16px);letter-spacing:.05em}
+  .tl-stop span{display:block;font-size:clamp(9px,1.12vh,12px);letter-spacing:.14em;color:#4a5140;margin-top:.3vh}
+
+  /* scroll cue — fades in while the pointer is over the list */
+  .tl-cue{
+    position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    opacity:0;transition:opacity .3s ease;pointer-events:none;z-index:3;
+  }
+  .tl-wrap:hover .tl-cue{opacity:.75}
+  .tl-cue .mouse{
+    width:17px;height:27px;border:1.4px solid var(--olive);border-radius:9px;position:relative;
+  }
+  .tl-cue .mouse::after{
+    content:"";position:absolute;left:50%;top:5px;width:2.5px;height:5px;border-radius:2px;
+    background:var(--olive);transform:translateX(-50%);
+    animation:wheelDot 1.5s ease-in-out infinite;
+  }
+  @keyframes wheelDot{0%{opacity:0;transform:translate(-50%,0)}35%{opacity:1}100%{opacity:0;transform:translate(-50%,9px)}}
+  .tl-cue em{font-style:normal;font-size:7.5px;letter-spacing:var(--ls-label);color:var(--olive)}
+  .tl-wrap{position:relative;width:min(80vw,330px);margin:0 auto}
+
+  /* Desktop lays all five groups out as a grid — no scroll, no wasted space.
+     Mobile turns it back into a single scrolling column (media query below). */
+  .motif-scroll{width:min(92vw,900px);margin:2vh auto 0;overflow:visible}
+  .motif-scroll #motifGroups{
+    display:grid;gap:1vh clamp(16px,2.4vw,38px);
+    grid-template-columns:repeat(3,1fr);
+  }
+  /* --- each group expands IN PLACE to show attire samples. <details> rather
+     than a custom disclosure: the browser supplies the open/close state,
+     keyboard handling and the correct ARIA for free. Inside a grid the row
+     simply grows taller, which is the "expand, don't cover the page" ask. --- */
+  .motif-row{
+    border-radius:var(--rc-lg);overflow:hidden;
+    background:var(--gl-fill);
+    -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+    border:1px solid var(--gl-rim);box-shadow:var(--gl-shadow);
+    align-self:start;                 /* don't stretch closed rows to match an open one */
+    transition:box-shadow var(--dur) var(--ease);
+  }
+  .motif-row[open]{box-shadow:0 14px 40px rgba(28,40,14,.16)}
+  .motif-row > summary{
+    list-style:none;cursor:pointer;
+    padding:2.2vh clamp(12px,1.4vw,22px);
+  }
+  .motif-row > summary::-webkit-details-marker{display:none}
+  .motif-row > summary:focus-visible{outline:1px solid var(--green);outline-offset:-3px}
+  .motif-open{
+    display:block;margin-top:1.1vh;
+    font-size:8.5px;letter-spacing:var(--ls-label);color:var(--green);opacity:.85;
+  }
+  .motif-row[open] .motif-open span.shut{display:none}
+  .motif-row:not([open]) .motif-open span.open{display:none}
+  .motif-more{
+    padding:0 clamp(12px,1.4vw,22px) 2.4vh;
+    animation:fadeup .38s var(--ease-out) both;
+  }
+  .motif-more::before{
+    content:"";display:block;height:1px;margin-bottom:2vh;
+    background:rgba(20,24,13,.12);
+  }
+  .samples{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(6px,.7vw,10px)}
+  .sample{text-align:center}
+  /* placeholder tile: a tinted frame standing in for a real outfit photo */
+  .sample i{
+    display:block;aspect-ratio:3/4;border-radius:var(--rc);
+    box-shadow:inset 0 0 0 1px rgba(20,24,13,.10);
+    background-size:cover;background-position:center;
+  }
+  .sample span{
+    display:block;margin-top:.8vh;font-size:7.5px;letter-spacing:.1em;
+    color:#4a5140;line-height:1.5;
+  }
+  .motif-note{margin-top:1.2vh;font-size:clamp(9px,1.12vh,12px);letter-spacing:.06em;color:#4a5140;line-height:1.6}
+  .swatches{display:flex;justify-content:center;gap:clamp(8px,1.2vw,18px);margin-top:1.6vh;flex-wrap:wrap}
+  .sw{display:flex;flex-direction:column;align-items:center;gap:.8vh}
+  .sw i{width:clamp(26px,3.6vh,44px);height:clamp(26px,3.6vh,44px);border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+  .sw span{font-size:9px;letter-spacing:var(--ls-label);color:var(--muted)}
+  .sectitle{font-weight:500;letter-spacing:var(--ls-head);font-size:clamp(12px,1.9vh,20px);margin-bottom:1.2vh}
+  .placeholder{margin-top:3vh;font-size:11px;letter-spacing:.14em;color:var(--muted);line-height:2}
+
+  /* plain text, no surfaces — the entourage is a list of names, and boxing
+     each group made it read as a set of cards competing for attention */
+  .ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:5vh 3vw;margin-top:5vh;text-align:center}
+  .ent-grid h4{font-size:9.5px;letter-spacing:var(--ls-label);color:var(--green);margin-bottom:1.6vh;font-weight:600}
+  .ent-grid p{font-size:clamp(10px,1.3vh,13px);line-height:2;color:#3a4030}
+
+  .faq{max-width:660px;margin:5vh auto 0;text-align:left;display:flex;flex-direction:column;gap:9px}
+  .faq details{
+    border-radius:var(--rc-lg);padding:0 clamp(14px,1.6vw,22px);
+    background:var(--gl-fill);
+    -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+    border:1px solid var(--gl-rim);box-shadow:var(--gl-shadow);
+  }
+  .faq summary{padding:2.3vh 0;font-size:clamp(10px,1.4vh,14px);letter-spacing:.1em;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--green);font-weight:600}
+  .faq details[open] summary::after{content:"–"}
+  .faq summary:focus-visible{outline:1px solid var(--green);outline-offset:3px;border-radius:var(--r-sm)}
+  .faq p{padding:0 0 2.5vh;font-size:clamp(10px,1.3vh,13px);line-height:1.95;color:#4a5140}
+  /* inline link inside FAQ prose — underline only, no button affordance */
+  .faq a{
+    color:var(--green);font-weight:600;text-decoration:none;
+    border-bottom:1px solid rgba(79,122,34,.4);transition:border-color .2s;
+  }
+  .faq a:hover,.faq a:focus-visible{border-bottom-color:var(--green)}
+
+  /* --- chaodesign credit ---
+     Label-sized and dimmed, so it reads as a credit rather than a pitch.
+     Inherits the section's foreground colour, so the same class works on the
+     light wedding panel and on the dark RSVP overlay. --- */
+  .credit{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:9px;letter-spacing:var(--ls-label);line-height:1.5;
+    text-decoration:none;color:inherit;opacity:.55;
+    transition:opacity var(--dur) var(--ease);
+  }
+  .credit:hover,.credit:focus-visible{opacity:1}
+  .credit b{font-weight:600;letter-spacing:.1em}
+  .credit .ig{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6}
+  .panel .credit{color:var(--green);opacity:.7}
+  /* Sits tight under the swatch grid on purpose: guests screenshot the motif
+     palette to shop for outfits, so the credit has to be inside that crop. */
+  .motif-credit{margin-top:2.4vh}
+  .ok .credit{margin-top:6vh}
+
+  /* ============================================================
+     RSVP
+     ============================================================ */
+  #rsvp{position:fixed;inset:0;z-index:90;background:#0a0c07;display:none;overflow-y:auto}
+  #rsvp.on{display:block}
+  /* Something has to sit behind the glass or it reads as flat grey. A blurred
+     wash of the journey photo, so the RSVP shares the site's palette. */
+  #rsvp::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(90% 70% at 78% 4%, rgba(79,122,34,.42), transparent 60%),
+      url(img/p1_Im0.jpg) center/cover no-repeat;
+    filter:blur(54px) saturate(.9) brightness(.52);opacity:.85;
+  }
+  /* Lift ONLY the content wrapper above the wash. `#rsvp > *` would also match
+     .rclose, and an ID selector outranks a class — so `position:relative` beat
+     .rclose's `position:fixed` and dumped the close button into the flow at
+     the top LEFT, half off-screen. Never blanket-position an ID's children. */
+  #rsvp .rwrap{position:relative;z-index:1}
+  /* the overlay owns the screen — hide the persistent chrome behind it */
+  body.rsvp-open .topbar,
+  body.rsvp-open .audio-btn,
+  body.rsvp-open .audio-hint{display:none}
+  .rwrap{max-width:560px;margin:0 auto;padding:12vh 7vw 10vh}
+  .rwrap h3{font-weight:500;letter-spacing:var(--ls-label);font-size:clamp(15px,2.4vh,26px);text-align:center;margin-bottom:1.4vh}
+  .rwrap .rsub{text-align:center;font-size:11px;letter-spacing:.12em;opacity:.6;margin-bottom:5vh;line-height:1.9}
+  .rlabel{font-size:9.5px;letter-spacing:var(--ls-label);opacity:.65;margin-bottom:1.3vh;display:block}
+  .rinput{
+    width:100%;height:56px;border-radius:var(--r-pill);
+    color:#fff;padding:0 24px;outline:0;letter-spacing:.06em;
+    /* 16px floor: iOS zooms any smaller focused field and never zooms back */
+    font-size:max(16px,14px);
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .rinput::placeholder{color:rgba(255,255,255,.4)}
+  .rinput:focus{border-color:rgba(255,255,255,.55);box-shadow:var(--g-shadow),0 0 0 4px rgba(157,203,90,.16)}
+  .sugg:not(:empty){
+    margin-top:9px;border-radius:var(--rc-lg);overflow:hidden;
+    background:rgba(18,24,12,.72);
+    -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+    border:1px solid var(--g-rim);box-shadow:var(--g-shadow);
+  }
+  .sugg button{display:block;width:100%;text-align:left;padding:15px 22px;font-size:13px;letter-spacing:.05em;transition:background .15s}
+  .sugg button + button{border-top:1px solid rgba(255,255,255,.08)}
+  .sugg button:hover{background:rgba(255,255,255,.10)}
+  .sugg .done{font-size:9px;letter-spacing:var(--ls-label);color:var(--lime);margin-left:8px}
+  .party{margin-top:5vh}
+  .party .plabel{font-size:9.5px;letter-spacing:var(--ls-label);opacity:.6;margin-bottom:2.6vh}
+  .banner{
+    border-radius:var(--rc-lg);border-left:3px solid var(--lime);
+    padding:18px 20px;font-size:11px;letter-spacing:.07em;line-height:1.85;margin-bottom:3.4vh;
+  }
+  .member{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:16px 20px;margin-bottom:9px;border-radius:var(--rc-lg);flex-wrap:wrap;
+  }
+  .member .who{font-size:13.5px;letter-spacing:.05em}
+  .member .who em{display:block;font-style:normal;font-size:9px;letter-spacing:.14em;opacity:.45;margin-top:5px}
+  .seg{
+    display:flex;flex:none;border-radius:var(--r-pill);padding:3px;
+    background:rgba(0,0,0,.2);border:1px solid var(--g-rim-soft);
+  }
+  .seg button{
+    padding:9px 16px;border-radius:var(--r-pill);
+    font-size:9.5px;letter-spacing:.14em;opacity:.6;transition:all .18s;
+  }
+  .seg button.yes.on{background:var(--lime);opacity:1;color:#1c2610;font-weight:600}
+  .seg button.no.on{background:rgba(255,255,255,.92);opacity:1;color:#14180d;font-weight:600}
+  .rwrap textarea{
+    width:100%;min-height:112px;border-radius:var(--rc-lg);
+    color:#fff;padding:16px 20px;outline:0;font-family:inherit;
+    font-size:max(16px,13px);line-height:1.75;resize:vertical;margin-top:1.3vh;
+    transition:border-color .2s;
+  }
+  .rwrap textarea::placeholder{color:rgba(255,255,255,.4)}
+  .rwrap textarea:focus{border-color:rgba(255,255,255,.5)}
+  .submit{
+    width:100%;height:58px;margin-top:4.4vh;border-radius:var(--r-pill);
+    background:var(--lime);color:#1c2610;font-weight:600;
+    letter-spacing:var(--ls-label);font-size:11px;
+    box-shadow:0 8px 26px rgba(157,203,90,.22);
+    transition:background .2s, transform .18s;
+  }
+  .submit:hover{background:#aedc68;transform:translateY(-1px)}
+  .submit:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+  .rclose{
+    position:fixed;right:3.2vw;top:3.4vh;z-index:95;
+    border-radius:var(--r-pill);padding:11px 20px;
+    font-size:10px;letter-spacing:var(--ls-label);
+    transition:background var(--dur) var(--ease);
+  }
+  .rclose:hover{background:rgba(255,255,255,.22)}
+  .ok{text-align:center;padding:9vh 0}
+  .ok .tick{
+    width:66px;height:66px;margin:0 auto 3vh;border-radius:50%;
+    display:grid;place-items:center;font-size:28px;color:var(--lime);
+  }
+
+  .fieldnote{margin-top:1.2vh;font-size:9.5px;letter-spacing:.1em;opacity:.42;line-height:1.7}
+
+  /* ---------- mobile ---------- */
+  @media (max-width:768px){
+    /* no horizontal track on phones — plain vertical stacking */
+    #hpin{height:auto;overflow:visible}
+    #htrack{display:block;width:auto;height:auto;transform:none!important}
+    #htrack > section{width:auto}
+    /* Every section is exactly one screen and snaps, so you can never rest
+       half-on-one-page / half-on-the-next. Sections scroll internally instead
+       of growing taller than the viewport. */
+    html{scroll-snap-type:y mandatory}
+    #htrack > section{scroll-snap-align:start;scroll-snap-stop:always}
+    #intro,#journey,#wedding{height:100vh}
+
+    /* --- top bar. Three full-width labels plus the logo and RSVP do not fit
+       at 375px, so the nav becomes icon-free initials and RSVP loses its
+       horizontal padding. The bar itself stays one geometric container. --- */
+    .topbar{
+      top:calc(1.4vh + env(safe-area-inset-top,0px));
+      width:calc(100vw - 4.4vw);gap:8px;
+      padding:6px 7px 6px 11px;
+    }
+    .topbar .brand{width:clamp(28px,8.6vw,38px)}
+    .secnav-items{width:auto;flex:1 1 auto;padding:2px}
+    .secnav-items button{
+      padding:9px 0;font-size:clamp(7.5px,2.35vw,10px);letter-spacing:.09em;
+    }
+    .rsvp-pill{padding:9px 14px;font-size:9px;letter-spacing:.11em}
+
+    /* --- journey coverflow: native scroll-snap. The side padding centres the
+       first and last card, and because the stride is only slightly wider than
+       a card, the neighbours bleed off both screen edges — which is the whole
+       point of the reference layout. --- */
+    #journey{padding:0}
+    .jcontent{
+      position:absolute;inset:0;transform:none;
+      padding:calc(1.4vh + env(safe-area-inset-top,0px) + clamp(44px,13vw,58px) + 2.6vh)
+              0 calc(4vh + env(safe-area-inset-bottom,0px));
+    }
+    .chapsel{width:calc(100vw - 9vw)}
+    .chapsel button{font-size:7.5px;letter-spacing:.09em;padding-bottom:2px}
+    .flow{
+      --cw:74vw;
+      --ch:min(46vh,400px);
+      cursor:auto;
+      display:flex;align-items:center;justify-content:flex-start;
+      overflow-x:auto;overscroll-behavior-x:contain;
+      scroll-snap-type:x mandatory;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+      padding:0 calc((100vw - var(--cw)) / 2);gap:3.4vw;
+      margin-top:2.4vh;
+    }
+    .flow::-webkit-scrollbar{display:none}
+    .cf{
+      position:relative;left:auto;top:auto;margin:0;
+      flex:0 0 var(--cw);scroll-snap-align:center;
+      transform:scale(.88);opacity:.5;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .cf.on{transform:scale(1);opacity:1}
+    .jnav{display:none}                 /* swipe replaces the arrows */
+    .jcopy{margin-top:2.6vh;max-width:84vw;font-size:clamp(9px,2.75vw,12px)}
+
+    /* --- wedding: header pinned, only the panel content scrolls, so the gap
+       under the top bar is identical on every tab --- */
+    #wedding{
+      display:flex;flex-direction:column;overflow:hidden;
+      padding:calc(1.4vh + env(safe-area-inset-top,0px) + clamp(44px,13vw,58px) + 2.6vh)
+              0 0;
+    }
+    #wedding .tabs{flex:none}
+    .panel{
+      margin-top:0;flex:1 1 auto;min-height:0;
+      overflow-y:auto;overscroll-behavior:contain;
+      padding:3.4vh 6vw calc(13vh + env(safe-area-inset-bottom,0px));
+      scrollbar-width:none;
+    }
+    .panel::-webkit-scrollbar{display:none}
+    /* five bare labels have to fit 375px without scrolling — the hairline
+       track is absolutely positioned and would slide away from them */
+    .tabrow{gap:clamp(8px,2.9vw,14px)}
+    .tabrow button{font-size:8px;letter-spacing:.09em}
+
+    /* timeline keeps its own scroll here — there genuinely isn't room */
+    .tl{height:auto;max-height:none;overflow:visible;width:100%}
+    .tl-cue{display:none}
+    .tl-wrap{width:100%}
+    .tl-stop{padding:1.5vh 1rem}
+
+    .motif-scroll{width:auto;overflow:visible}
+    /* one card per row — gap:0 would butt the glass panels together */
+    .motif-scroll #motifGroups{grid-template-columns:1fr;gap:9px}
+    .ent-grid{grid-template-columns:1fr;gap:9px}
+    .countdown{gap:7px}
+    .countdown div{min-width:0;flex:1 1 52px;padding:1.3vh .5rem}
+    .mapwrap{width:100%}
+    .mapwrap #map{aspect-ratio:4/3}
+
+    /* mute control lifted clear of the iOS home indicator */
+    .audio-btn{
+      bottom:calc(2.6vh + env(safe-area-inset-bottom,0px));
+      left:4vw;width:42px;height:42px;
+    }
+    .audio-hint{display:none}           /* no room beside a 42px disc */
+    .rclose{top:calc(1.4vh + env(safe-area-inset-top,0px));right:4vw;padding:10px 16px}
+    .rwrap{padding:9vh 7vw 12vh}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition-duration:.01ms!important}
+  }
+</style>
+</head>
+<body>
+<svg id="kc-sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><symbol id="kc-logo" viewBox="0 0 2919.83 2508.83"><g id="Layer_2-2" data-name="Layer 2"> <g> <g> <path d="M708.28,55.59c36.58,32.74,86.62,50.05,13.47,132.83-84.7,94.29-315.71,415.75-334.93,513.93,75.07-55.8,450.41-435.02,500.46-219.41,9.63,40.41-34.61,90.46-55.8,121.23-21.19-19.22-44.29-36.58-65.43-55.8-148.22,98.17-288.77,205.98-423.52,321.46,109.73,78.9,236.76,128.95,369.59,152.05l34.66-67.35c59.68,44.25,17.31,153.97-48.13,169.41-142.42,32.69-333.01-75.07-429.27-171.32-67.35,103.93-71.19,150.14-109.73,223.29-55.8-5.8-80.82-30.82-92.37-53.93-11.55-23.06,3.84-53.88,15.39-84.66C171.2,802.48,483.07,219.2,663.99,22.85c15.43,11.55,30.82,21.19,44.29,32.74Z"/> <path d="M1333.85,848.65c-51.96,71.23-179,229.09-284.89,290.69-59.68,36.58-98.17,23.11-152.05-9.63-25.02-15.39-40.46-36.58-40.46-65.43,0-286.8,180.96-789.22,386.94-1041.42,26.94-32.69,50.05-26.94,88.54-3.84,42.33,25.02,98.17,65.43,38.49,102.01-78.9,48.13-327.21,477.4-398.45,812.33-21.19,96.26-19.27,155.94,5.75,155.94,67.4,0,267.58-244.48,344.57-304.16,38.49,13.47,36.58,28.86,11.55,63.52Z"/> <path d="M1510.93,509.88c28.86,25.02,78.9,26.94,63.52,51.96-65.43,111.64-105.84,177.08-152.05,282.97-180.96,417.72,103.93,125.11,254.11-61.6,23.06,15.39,50.05,23.11,38.49,46.21-57.76,113.56-165.57,230.96-273.38,294.52-71.19,42.33-90.46,38.49-155.89-7.72-90.5-61.6,1.92-238.68,55.8-425.43,3.88-13.47-7.67-34.61,5.8-71.19,23.11-63.52,71.23-138.63,105.84-138.63,21.19,0,44.29,17.35,57.76,28.9ZM1655.31,384.77c-7.72,9.59-17.35,21.14-25.02,30.78-34.66,40.41-57.76,57.76-96.26,23.11-38.49-34.66,21.19-130.91,48.13-157.85,32.74-32.69,59.68,1.92,86.62,15.39,34.66,25.02,21.19,44.29-13.47,88.58Z"/> <path d="M2415.63,548.37c-65.43,128.95-71.19,138.58-138.58,267.58,115.48,61.6,281.05,23.06,354.2-26.99l15.39,34.66c-59.68,84.7-179,109.73-296.44,96.26,48.13,186.71-86.62,506.26-204.06,615.98-69.27,61.6-94.29,53.88-190.55-9.63-175.16-113.56,167.49-737.26,329.18-987.49-100.09,0-311.87,138.58-417.72,315.71,75.07,232.92-75.07,571.69-192.51,681.42-69.27,61.6-94.29,53.88-190.55-9.63-209.82-134.75,377.26-1116.44,458.13-1210.78,61.6,36.58,92.37,51.96,63.52,113.56-65.43,129-132.83,257.95-200.18,386.94,105.84-152.1,367.67-358.04,492.79-385.02,57.72-11.55,152.05,34.66,117.4,117.44ZM1597.55,1406.91c82.79-100.14,292.6-371.55,177.08-529.36-75.07,167.44-142.42,338.77-177.08,529.36ZM2069.15,1406.91c82.79-100.14,292.6-371.55,177.12-529.36-75.11,167.44-142.47,338.77-177.12,529.36Z"/> </g> <g> <path d="M521.38,1796.59c-132.83,17.35-550.5,639.09-284.89,577.49,115.48-30.78,223.29-84.7,325.3-148.22,53.93-34.66,107.81-73.15,163.65-111.64,34.66,26.94,36.58,42.33,1.92,69.32-115.48,98.17-238.68,205.94-381.14,267.53-88.54,38.49-154.02,55.84-229.09,9.63-19.22-13.47-32.69-26.94-51.96-38.49-57.76-40.41-73.15-98.17-61.6-161.69,32.74-190.59,259.86-444.66,396.53-542.83,84.7-55.84,129-63.52,204.06,11.55,26.94,28.86,36.58,61.6,21.19,94.29-28.9,77.03-75.07,140.55-127.08,198.27-25.02,23.11-28.86,21.19-73.15-23.06,30.82-67.4,78.95-125.16,96.26-202.15Z"/> <path d="M1031.48,2008.33c84.7-61.6,154.02-127.03,236.8-32.69,28.86,32.69,23.06,46.16,1.92,82.74-48.13,84.7-205.98,263.74-184.79,352.28,82.74,25.02,284.89-236.76,358.04-284.89,36.58-23.11,42.33,19.22,48.13,38.49-94.34,88.54-180.96,248.31-294.52,309.91-53.93,28.9-102.05,1.92-144.38-34.66-127.03-109.73,3.84-277.17,53.88-390.73-159.77,82.74-296.44,321.46-404.2,460.05-34.66-21.19-80.87-34.66-80.87-82.79,0-227.12,386.9-902.79,540.91-1058.72,42.33-42.33,109.73,44.29,140.5,78.95,3.88,17.31-57.72,34.66-78.9,59.68-150.14,192.47-304.16,458.13-398.45,683.33,55.8-44.29,148.22-138.58,205.94-180.96Z"/> <path d="M1682.12,2299.02c-26.94,30.78-55.84,57.76-90.46,78.9-75.11,48.13-182.88-9.59-182.88-100.09,0-57.72,15.39-121.28,40.41-184.79,57.76-142.42,165.53-286.8,267.58-358.04,140.5-100.09,225.21-63.52,333.01,67.4l38.49-38.49c26.94-26.99,38.49-7.72,57.76,9.59,28.86,25.02,73.15,38.49,57.72,63.52-65.43,111.69-136.67,232.92-182.88,338.81-180.91,417.72,103.97,125.11,254.11-61.6,23.11,15.39,50.05,23.11,38.49,46.21-57.76,113.56-165.53,230.96-273.33,294.52-71.23,42.33-90.46,38.49-155.94-7.72-98.17-67.35-23.11-282.97,77.03-465.85-92.42,105.89-184.79,213.7-279.13,317.63ZM1930.43,1890.93c30.82-36.58,30.82-48.13-1.92-86.62-154.02,53.88-386.94,331.1-404.25,494.7,142.47-129,282.97-263.7,406.16-408.08Z"/> <path d="M2873.62,2131.53c25.02-19.22,36.58,11.55,46.21,38.49-69.32,71.23-155.94,148.27-323.43,121.28h-1.92c-92.37,100.09-175.16,223.29-302.19,138.63-59.68-36.58-98.17-84.7-80.87-154.02,7.72-46.21,26.94-128.95,59.68-188.63,25.02-44.29,57.76-76.99,100.09-73.15,17.35,1.92,32.74,3.84,34.66-9.63,26.94-127.03,171.32-331.1,311.83-327.26,84.7,5.8,130.91,61.64,121.28,142.47-7.72,138.58-96.26,275.25-175.16,386.9,76.99,15.43,125.11-9.59,209.82-75.07ZM2498.24,2245.13c-32.69-17.35-73.11-73.15-75.07-121.28-36.58,65.43-75.07,136.67-80.82,227.12,1.92,32.74,88.54-28.86,155.89-105.84ZM2765.82,1767.74c-138.58,73.15-234.84,254.06-194.43,386.9,92.42-125.11,163.65-240.59,194.43-386.9Z"/> </g> <g> <path d="M238.64,1512.8c-6.48,7.4-13.47,13.93-21.78,19-18.13,11.6-44.06-2.28-44.06-24.11,0-13.88,3.7-29.22,9.73-44.52,13.93-34.29,39.86-69.09,64.47-86.26,33.84-24.11,54.25-15.3,80.23,16.26l9.27-9.27c6.48-6.53,9.27-1.87,13.93,2.28,6.94,6.03,17.58,9.27,13.88,15.3-15.75,26.94-32.92,56.12-44.06,81.64-43.56,100.64,25.07,30.14,61.23-14.84,5.57,3.7,12.05,5.57,9.27,11.14-13.93,27.35-39.86,55.62-65.84,70.96-17.17,10.18-21.78,9.27-37.58-1.87-23.65-16.21-5.57-68.17,18.58-112.24-22.28,25.53-44.52,51.51-67.26,76.53ZM298.46,1414.49c7.44-8.81,7.44-11.6-.46-20.87-37.12,12.97-93.2,79.77-97.4,119.18,34.34-31.1,68.17-63.52,97.85-98.31Z"/> <path d="M569.6,1479.43c-6.03,22.69-72.83,79.27-96.03,76.99-6.94-.96-12.97-5.11-19.45-10.23-33.88-25.48,26.44-116.85,42.19-143.74-48.68,32.47-95.98,84.84-110.37,143.74-1.87,6.99-10.68,4.66-14.38,3.24-11.14-4.61-14.38-9.27-11.6-20.87,10.68-42.65,42.65-124.29,74.66-154.43,12.05,1.87,25.07,15.3,19.5,20.87l-28.77,45.94c21.78-15.8,83.93-90,109.45-62.15,7.4,7.85,7.4,12.51,3.24,22.24-18.08,41.28-48.68,84.89-59.82,114.11-11.6,32.92,34.29,16.21,81.14-46.39,9.73,8.36,10.23,9.73,10.23,10.68Z"/> <path d="M777.14,1349.56l-10.64-3.24c-28.77,35.71-59.36,95.53-76.53,138.17-3.24,7.9-5.57,13.47-8.36,21.37-34.29,97.35,66.35-21.37,80.69-36.21,9.32,4.66,11.6,4.66,5.11,13.93-16.67,24.57-56.12,70.5-82.56,83.01-19,9.27-40.32-3.7-43.56-23.65-4.66-26.44,14.84-60.27,23.65-84.84-27.4,26.9-50.55,57.03-76.53,84.84-14.38,15.75-21.32,14.84-37.12.91-25.94-23.15,36.21-194.75,97.4-150.23,12.51,8.81,23.2,20.41,34.34,30.59,22.69-38.95,61.19-113.61,95.98-140.5,39.41,20.41,12.05,38.04-1.87,65.84ZM663.07,1433.95c-1.87-4.61-3.7-9.27-6.03-13.42-24.57-41.28-79.77,89.04-84.89,105.25,31.55-29.18,59.36-62.6,90.91-91.83Z"/> </g> </g> </g></symbol></svg>
+
+<!-- ============ 1. GATE ============ -->
+<div id="gate">
+  <div class="bg"><img src="img/intro.jpg" alt=""></div>
+  <svg class="grass" id="grass" viewBox="0 0 1200 170" preserveAspectRatio="none" aria-hidden="true"></svg>
+  <canvas class="motes" id="motes" aria-hidden="true"></canvas>
+  <div class="birds" id="birds" aria-hidden="true"></div>
+
+  <div id="loader">
+    <div class="lnum"><span id="lpct">0</span><sup>%</sup></div>
+    <div class="lbar"><i id="lbarFill"></i></div>
+    <div class="lcap">PREPARING OUR STORY</div>
+  </div>
+
+  <div class="gatelogo logo" aria-hidden="true"></div>
+
+  <div class="stack">
+    <h1 class="ginvite">You are <em>invited!</em></h1>
+    <p class="gprompt">Please enter the password from your invitation</p>
+    <!-- deliberately NOT a <form>: a submit would reload the document and
+         destroy the <audio> element along with the ENTER gesture it needs. -->
+    <div class="gbar g">
+      <input id="pw" type="password" placeholder="Password"
+             aria-label="Password"
+             autocapitalize="none" autocorrect="off" spellcheck="false"
+             autocomplete="current-password" />
+      <button class="gsend" id="enter" aria-label="Enter">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+    </div>
+    <div class="err" id="gerr">That's not quite it — try again</div>
+  </div>
+  <div class="hint g">prototype hint — the password is <b>kliffandchao</b></div>
+</div>
+
+<!-- ============ persistent chrome ============
+     website2.0.pdf §2: one geometric glass bar holding the logo, the
+     intro/journey/wedding scroll indicator, and RSVP. -->
+<header class="topbar" id="topbar">
+  <div class="brand logo" id="brand" aria-label="Kliff and Chao" role="img"></div>
+  <div class="navwrap">
+    <nav class="secnav-items" id="secnav" aria-label="Sections">
+      <div class="navind" id="navind"></div>
+      <button data-go="intro">INTRO</button>
+      <button data-go="journey">JOURNEY</button>
+      <button data-go="wedding">WEDDING</button>
+    </nav>
+  </div>
+  <button class="rsvp-pill" id="openRsvp">RSVP</button>
+</header>
+
+<button class="audio-btn g" id="audioBtn" title="Toggle music" aria-label="Toggle music" aria-pressed="false">
+  <svg class="spk" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+    <g class="wave"><path d="M16.8 8.6a4.8 4.8 0 0 1 0 6.8"/><path d="M19.2 6.2a8 8 0 0 1 0 11.6"/></g>
+    <path class="slash" d="M17 9l5 6M22 9l-5 6"/>
+  </svg>
+  <span class="eq"><i></i><i></i><i></i><i></i></span>
+</button>
+<div class="audio-hint g" id="audioHint">♪ THE BLESSING — TAP TO MUTE</div>
+
+<!-- ==== 2 + 3 + 5-7 : one horizontal track, intro -> journey -> wedding =====
+     #hpin is what ScrollTrigger pins; #htrack is what we translate. They must
+     be different elements or the pin and the slide fight over `transform`. -->
+<div id="hpin"><div id="htrack">
+
+<section id="intro">
+  <div class="bg">
+    <video src="video/intro-web.mp4" poster="img/intro-poster.jpg"
+           autoplay muted loop playsinline preload="metadata"
+           aria-hidden="true" tabindex="-1"></video>
+  </div>
+  <div class="plate">
+    <div class="versecol">
+      <button class="verse" id="verse" aria-live="polite" title="Tap for another verse"></button>
+      <div class="verse-hint" id="verseHint">TAP THE VERSE FOR ANOTHER</div>
+    </div>
+  </div>
+</section>
+
+<section id="journey">
+  <div class="jbg"><img src="img/p1_Im0.jpg" alt=""></div>
+  <svg class="grass" id="jgrass" viewBox="0 0 1200 170" preserveAspectRatio="none" aria-hidden="true"></svg>
+  <canvas class="motes" id="jmotes" aria-hidden="true"></canvas>
+
+  <div class="jcontent">
+    <!-- chapter stepper: hairline rule + one circle per chapter -->
+    <nav class="chapsel" id="chapsel" aria-label="Chapters">
+      <div class="chaprule"></div>
+    </nav>
+
+    <!-- coverflow rail; cards injected below -->
+    <div class="flow" id="flow"></div>
+
+    <p class="jcopy jfade" id="jcopy"></p>
+  </div>
+
+  <button class="jnav prev g" id="jprev" aria-label="Previous chapter">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <button class="jnav next g" id="jnext" aria-label="Next chapter">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
+</section>
+
+<!-- ============ 5-7. WEDDING ============ -->
+<section id="wedding">
+  <div class="tabs">
+    <div class="tabrow" id="tabrow">
+      <div class="ind" id="tabind"></div>
+      <button class="on" data-tab="detail">DETAIL</button>
+      <button data-tab="timeline">TIMELINE</button>
+      <button data-tab="mottif">MOTTIF</button>
+      <button data-tab="entourage">ENTOURAGE</button>
+      <button data-tab="faq">FAQ</button>
+    </div>
+  </div>
+
+  <div class="panel on" data-panel="detail">
+    <div class="bigdate">MARCH 5, 2027</div>
+    <div class="countdown" id="cd">
+      <div class="g-l"><b id="cdMo">—</b><span>MONTHS</span></div>
+      <div class="g-l"><b id="cdD">—</b><span>DAYS</span></div>
+      <div class="g-l"><b id="cdH">—</b><span>HOURS</span></div>
+      <div class="g-l"><b id="cdM">—</b><span>MINUTES</span></div>
+      <div class="g-l"><b id="cdS">—</b><span>SECONDS</span></div>
+    </div>
+    <div class="mapwrap"><div id="map" role="img"
+         aria-label="Map showing Jpark Island Resort and Waterpark, Mactan, Cebu"></div></div>
+    <div class="mapfoot">
+      <div class="addr">Jpark Island Resort and Waterpark<br>M.L. Quezon Hwy, Brgy. Maribago, Lapu-Lapu City, Cebu</div>
+      <a class="directions" target="_blank" rel="noopener"
+         href="https://www.google.com/maps/dir/?api=1&amp;destination=Jpark+Island+Resort+and+Waterpark+Mactan+Cebu">GET DIRECTIONS →</a>
+    </div>
+  </div>
+
+  <div class="panel" data-panel="timeline">
+    <p class="tl-intro">Doors open at 3:30 PM. Ceremony begins at 4:00 PM sharp.<br>Reception to follow.</p>
+    <div class="tl-wrap">
+      <div class="tl" id="tl"><div class="tl-inner" id="tlInner"></div></div>
+      <div class="tl-cue"><span class="mouse"></span><em>SCROLL</em></div>
+    </div>
+  </div>
+
+  <div class="panel" data-panel="mottif">
+    <div class="motif-scroll"><div id="motifGroups"></div></div>
+    <p class="motif-credit">
+      <!-- href is stamped by bootCredits() so the URL lives in exactly one place -->
+      <a class="credit" data-chao>
+        <svg class="ig" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/>
+          <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>PALETTE &amp; STATIONERY BY <b>CHAODESIGN.PH</b></span>
+      </a>
+    </p>
+    <p class="placeholder">All palettes and attire notes are placeholder — swap for the real motif.</p>
+  </div>
+
+  <div class="panel" data-panel="entourage">
+    <div class="sectitle">ENTOURAGE</div>
+    <div class="ent-grid">
+      <div><h4>PARENTS OF THE GROOM</h4><p>Mr. &amp; Mrs. Kho<br>—</p></div>
+      <div><h4>PARENTS OF THE BRIDE</h4><p>Mr. &amp; Mrs. Bulawin<br>—</p></div>
+      <div><h4>PRINCIPAL SPONSORS</h4><p>—<br>—<br>—</p></div>
+      <div><h4>BEST MAN</h4><p>—</p></div>
+      <div><h4>MAID OF HONOR</h4><p>—</p></div>
+      <div><h4>GROOMSMEN</h4><p>—<br>—<br>—</p></div>
+      <div><h4>BRIDESMAIDS</h4><p>—<br>—<br>—</p></div>
+      <div><h4>RING / COIN / BIBLE</h4><p>—<br>—<br>—</p></div>
+    </div>
+    <p class="placeholder">No content was designed for this tab — structure only.</p>
+  </div>
+
+  <div class="panel" data-panel="faq">
+    <div class="sectitle">FAQ</div>
+    <div class="faq">
+      <details open><summary>What should I wear?</summary><p>Formal attire in the motif palette above. Placeholder copy.</p></details>
+      <details><summary>Can I bring a plus one?</summary><p>Your invitation lists everyone in your party. Placeholder copy.</p></details>
+      <details><summary>Is the ceremony indoors?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Where can I park?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Until when can I RSVP?</summary><p>Placeholder — the couple still needs to pick a deadline.</p></details>
+      <details><summary>Can I bring my children?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Is there a gift registry?</summary><p>Placeholder copy.</p></details>
+      <details><summary>What time should I arrive?</summary><p>Doors open at 3:30 PM; the ceremony starts at 4:00 PM sharp. Placeholder copy.</p></details>
+      <details><summary>Will there be transportation?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Are there nearby hotels?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Who do I contact on the day?</summary><p>Placeholder copy.</p></details>
+      <details><summary>Who designed the invitation and this site?</summary>
+        <p>Chao did. She runs <a data-chao>chaodesign.ph</a> — stationery, styling
+        and brand design for weddings and events. Say hello if you have something
+        coming up. <i>Placeholder wording — swap for her own.</i></p></details>
+    </div>
+    <p class="placeholder">No content was designed for this tab — structure only.</p>
+  </div>
+</section>
+
+</div></div><!-- /#htrack /#hpin -->
+
+<!-- ============ RSVP ============ -->
+<div id="rsvp">
+  <button class="rclose g" id="closeRsvp">CLOSE ✕</button>
+  <div class="rwrap" id="rbody">
+    <h3>RSVP</h3>
+    <p class="rsub">Type your last name and we'll find your invitation.</p>
+
+    <label class="rlabel" for="q">LAST NAME</label>
+    <input class="rinput g" id="q" autocomplete="off" placeholder="e.g. Kho" />
+    <div class="fieldnote">Prototype: try <b>kho</b>, <b>co</b> (phonetic → Kho), <b>chao</b>, <b>sy</b>, <b>reyes</b></div>
+    <div class="sugg" id="sugg"></div>
+
+    <div class="party" id="party" style="display:none">
+      <div id="banner"></div>
+      <div class="plabel" id="plabel"></div>
+      <div id="members"></div>
+      <label class="rlabel" style="margin-top:4.6vh">A MESSAGE FOR KLIFF &amp; CHAO <span style="opacity:.5">(OPTIONAL)</span></label>
+      <textarea class="g" id="msg" maxlength="500" placeholder="Leave a note…"></textarea>
+      <button class="submit" id="send">SEND OUR RSVP</button>
+    </div>
+  </div>
+</div>
+
+<!-- spaces in the filename must be percent-encoded or the request 404s -->
+<audio id="bgm" loop preload="none"
+       src="audio/The%20Blessing%20-%20Cinematic%20Version.mp3"></audio>
+
+<script>
+/* ============================================================
+   Start every visit at the top.
+
+   Browsers restore the previous scroll offset on reload. That is wrong here
+   twice over: the gate comes back (so the guest re-enters the password and
+   should land on the intro), and the pinned horizontal track reports progress
+   0 while the document sits at, say, scrollY 15480 — the page is then
+   desynced, showing the intro while scrolled near the bottom, and nothing
+   responds until you scroll all the way back. Must run before ScrollTrigger
+   measures anything.
+   ============================================================ */
+if('scrollRestoration' in history) history.scrollRestoration='manual';
+window.scrollTo(0,0);
+
+/* ============================================================
+   MOCK DATA — stands in for the Google Sheet
+   ============================================================ */
+const GUESTS = [
+  {id:'g_a1',first:'Klifford',last:'Kho',nick:'Kliff',party:'kho-family',label:'The Kho Family'},
+  {id:'g_a2',first:'Clarissa',last:'Kho',nick:'Cla',party:'kho-family',label:'The Kho Family'},
+  {id:'g_a3',first:'Benedict',last:'Kho',nick:'Ben',party:'kho-family',label:'The Kho Family'},
+  {id:'g_b1',first:'Charlene',last:'Bulawin',nick:'Chao',party:'bulawin-family',label:'The Bulawin Family'},
+  {id:'g_b2',first:'Marites',last:'Bulawin',nick:'Tess',party:'bulawin-family',label:'The Bulawin Family'},
+  {id:'g_c1',first:'Andrea',last:'Sy',nick:'Andy',party:'sy-party',label:'Sy + 1'},
+  {id:'g_c2',first:'Marco',last:'Sy',nick:null,party:'sy-party',label:'Sy + 1'},
+  {id:'g_d1',first:'Joselito',last:'Reyes',nick:'Jojo',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_d2',first:'Maria',last:'Reyes',nick:'Baby',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_d3',first:'Paolo',last:'Reyes',nick:'Paul',party:'reyes-family',label:'The Reyes Family'},
+  {id:'g_e1',first:'Wilson',last:'Uy',nick:null,party:'uy-solo',label:'Wilson Uy'},
+];
+// pretend the Reyes party already responded
+const STATE = {
+  g_d1:{status:'attending',at:'3 March 2026',by:'Maria'},
+  g_d2:{status:'attending',at:'3 March 2026',by:'Maria'},
+  g_d3:{status:'not_attending',at:'3 March 2026',by:'Maria'},
+};
+
+/* Each chapter holds 3-5 stories. One scroll step = one story = one photocard.
+   All copy here is placeholder — swap in `content/chapters.ts` for the build. */
+const CHAPTERS = [
+  {n:'CHAPTER 1', t:'WHERE WE MET', label:'How we met', stories:[
+    {img:'img/p3_Im0.jpg', cap:'The night we met',      c:'It started somewhere completely ordinary. Placeholder copy for the moment our paths first crossed.'},
+    {img:'img/p4_Im0.jpg', cap:'Still just friends',    c:'Neither of us thought much of it at the time. Placeholder copy for the weeks that followed.'},
+    {img:'img/intro.jpg',  cap:'One long conversation', c:'And then one conversation went on far too long. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 2', t:'LDR VIBES', label:'LDR Vibes', stories:[
+    {img:'img/p4_Im0.jpg', cap:'Different time zones',  c:'Different time zones, terrible connections. Placeholder copy for the long-distance years.'},
+    {img:'img/p1_Im0.jpg', cap:'Midnight good-mornings',c:'Good-morning texts that arrived at midnight. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Airport arrivals',      c:'Counting down to the next airport arrival. Placeholder copy.'},
+    {img:'img/intro.jpg',  cap:'Closing the distance',  c:'Learning that distance is mostly a logistics problem. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 3', t:'FAVOR CONFERENCE', label:'Favor Conference', stories:[
+    {img:'img/p2_Im0.jpg', cap:'That weekend',          c:'The weekend that changed the shape of things. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Only one conversation', c:'A room full of people and somehow only one conversation. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'The long way home',     c:'We drove home the long way on purpose. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 4', t:'DATES', label:'Dates', stories:[
+    {img:'img/p1_Im0.jpg', cap:'Coffee, again',         c:'Coffee runs that turned into whole afternoons. Placeholder copy.'},
+    {img:'img/intro.jpg',  cap:'No destination',        c:'Long drives with no particular destination. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'All the way in',        c:'The slow ordinary business of falling all the way in. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'Meeting everyone',      c:'Meeting the families, surviving the questions. Placeholder copy.'},
+    {img:'img/p2_Im0.jpg', cap:'Not a question anymore',c:'Somewhere in here it stopped being a question. Placeholder copy.'},
+  ]},
+  {n:'CHAPTER 5', t:"WE'RE ENGAGED!", label:"WE'RE ENGAGED!", stories:[
+    {img:'img/intro.jpg',  cap:'Three weeks of nerves', c:'He had been carrying it around for three weeks. Placeholder copy.'},
+    {img:'img/p3_Im0.jpg', cap:'Right after yes',       c:'And then a yes, before he had finished asking. Placeholder copy.'},
+    {img:'img/p4_Im0.jpg', cap:'Telling everyone',      c:'Phone calls to everyone, in no sensible order. Placeholder copy.'},
+    {img:'img/p1_Im0.jpg', cap:'March 5, 2027',         c:'March 5, 2027. Placeholder copy for what comes next.'},
+  ]},
+];
+/* Flattened to scroll steps — one entry per story, tagged with its chapter. */
+const STORIES = CHAPTERS.flatMap((ch,ci)=>
+  ch.stories.map((s,si)=>({...s, ci, si, of:ch.stories.length})));
+
+/* Verses live in content/ in the real build — one array, easy to edit. */
+const VERSES = [
+  {t:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."', r:'JEREMIAH 29:11'},
+  {t:'For nothing will be impossible with God.', r:'LUKE 1:37'},
+  {t:'It is not good for the man to be alone. I will make a helper suitable for him.', r:'GENESIS 2:18'},
+  {t:'Though one may be overpowered, two can defend themselves. A cord of three strands is not quickly broken.', r:'ECCLESIASTES 4:12'},
+  {t:'And over all these virtues put on love, which binds them all together in perfect unity.', r:'COLOSSIANS 3:14'},
+];
+
+/* ============================================================
+   LOGO — fetched once and inlined into every .logo container, so the
+   paths inherit currentColor. Falls back to an <img> if the fetch fails.
+   ============================================================ */
+/* The logo markup is inlined in the page as <symbol id="kc-logo"> (see the
+   sprite right after <body>), so this needs NO network call.
+   Previously it fetched the .svg, which fails outright under file:// — the
+   fallback then rendered a plain <img>, and a standalone SVG resolves
+   `currentColor` to BLACK, so the mark stayed black on dark sections. */
+/* ============================================================
+   CHAODESIGN CREDIT — one URL, stamped onto every `data-chao` anchor.
+
+   The UTM params are load-bearing, not decoration: vercel.json sets
+   `Referrer-Policy: no-referrer` (to stop the venue directions link leaking
+   this site's URL), so Instagram would otherwise log these clicks as direct
+   traffic with no idea they came from here. UTMs are in the URL itself, so
+   they survive the header.
+   ============================================================ */
+const CHAODESIGN='https://www.instagram.com/chaodesign.ph/'
+  +'?utm_source=kliffandchao&utm_medium=wedding-site';
+function bootCredits(){
+  document.querySelectorAll('a[data-chao]').forEach(a=>{
+    a.href=CHAODESIGN;
+    a.target='_blank';
+    a.rel='noopener noreferrer';       // never hand the opener a window ref
+  });
+}
+bootCredits();
+
+(function bootLogos(){
+  const hosts=[...document.querySelectorAll('.logo')];
+  const sym=document.getElementById('kc-logo');
+  if(!hosts.length||!sym) return;
+  const vb=sym.getAttribute('viewBox');
+  hosts.forEach(h=>{
+    h.innerHTML='<svg viewBox="'+vb+'" preserveAspectRatio="xMidYMid meet" '
+      +'aria-hidden="true"><use href="#kc-logo"/></svg>';
+  });
+})();
+
+/* ============================================================
+   GATE AMBIENCE — swaying grass + drifting pollen
+   Purely decorative; skipped entirely under reduced-motion.
+   ============================================================ */
+const calm = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+function buildGrass(el){
+  if(calm||!el) return;
+  const N = innerWidth < 768 ? 34 : 60, W = 1200, H = 170;
+  let d = '';
+  for(let i=0;i<N;i++){
+    const x = (i + 0.2 + Math.random()*0.6) * (W/N);
+    const h = 58 + Math.random()*95;              // blade height
+    const lean = (Math.random()-0.5) * 30;        // resting lean
+    const w = 2 + Math.random()*2.6;              // base width, tapers to a point
+    d += `<path d="M${x.toFixed(1)} ${H} Q${(x+lean*0.35).toFixed(1)} ${(H-h*0.55).toFixed(1)} `
+       + `${(x+lean).toFixed(1)} ${(H-h).toFixed(1)} Q${(x+lean*0.35+w).toFixed(1)} ${(H-h*0.55).toFixed(1)} `
+       + `${(x+w).toFixed(1)} ${H} Z" style="animation-duration:${(3.4+Math.random()*3).toFixed(2)}s;`
+       + `animation-delay:${(-Math.random()*6).toFixed(2)}s;opacity:${(0.5+Math.random()*0.5).toFixed(2)}"/>`;
+  }
+  el.innerHTML = d;
+}
+
+/* Returns {start, stop} so each surface can be paused when it isn't on screen. */
+function makeMotes(cv, density=26000, tint='255,251,238'){
+  if(calm||!cv) return {start(){},stop(){}};
+  const cx = cv.getContext('2d');
+  const dpr = Math.min(devicePixelRatio||1, 2);   // cap DPR: 3x on phones is wasted fill rate
+  let W=0, H=0, parts=[], raf=0;
+  function resize(){
+    W = cv.width  = cv.offsetWidth  * dpr;
+    H = cv.height = cv.offsetHeight * dpr;
+    const n = Math.round(Math.min(55, (cv.offsetWidth*cv.offsetHeight)/density));
+    parts = Array.from({length:n}, () => ({
+      x: Math.random()*W, y: Math.random()*H,
+      r: (0.7 + Math.random()*2.1) * dpr,
+      rise: (0.05 + Math.random()*0.22) * dpr,   // slow upward drift
+      amp: (6 + Math.random()*22) * dpr,         // horizontal sway width
+      ph: Math.random()*Math.PI*2,
+      sp: 0.003 + Math.random()*0.006,
+      a: 0.14 + Math.random()*0.42
+    }));
+  }
+  function tick(){
+    cx.clearRect(0,0,W,H);
+    for(const p of parts){
+      p.y -= p.rise; p.ph += p.sp;
+      if(p.y < -8){ p.y = H + 8; p.x = Math.random()*W; }
+      cx.beginPath();
+      cx.arc(p.x + Math.sin(p.ph)*p.amp, p.y, p.r, 0, 6.2832);
+      cx.fillStyle = `rgba(${tint},${p.a})`;
+      cx.fill();
+    }
+    raf = requestAnimationFrame(tick);
+  }
+  addEventListener('resize', resize);
+  return {
+    start(){ if(raf) return; resize(); tick(); },
+    stop(){ cancelAnimationFrame(raf); raf=0; }
+  };
+}
+
+/* Birds: website2.0.pdf §1.1 asks for particles, birds AND wind on the gate.
+   Each is a single double-arc path — a gull silhouette at 20px — and the flap
+   is a scaleY on the svg. Sizes/lanes/timings are randomised per load so the
+   flock never looks like a repeating sprite strip. */
+function buildBirds(el){
+  if(calm||!el) return;
+  const N = innerWidth < 768 ? 3 : 5;
+  el.innerHTML = Array.from({length:N},(_,i)=>{
+    const w    = 14 + Math.random()*16;              // 14-30px wingspan
+    const top  = 8  + Math.random()*34;              // upper third of the frame
+    const dur  = 34 + Math.random()*40;              // one crossing, in seconds
+    const flap = 0.28 + Math.random()*0.22;
+    // negative delay starts each bird part-way across, so the sky isn't empty
+    // for the first half-minute
+    const delay = -Math.random()*dur;
+    return `<span class="bird" style="width:${w.toFixed(0)}px;height:${(w*0.5).toFixed(0)}px;`
+      + `top:${top.toFixed(1)}%;animation-duration:${dur.toFixed(1)}s;`
+      + `animation-delay:${delay.toFixed(1)}s">`
+      + `<svg viewBox="0 0 24 10" preserveAspectRatio="none" aria-hidden="true" `
+      + `style="animation-duration:${flap.toFixed(2)}s;animation-delay:${(-Math.random()).toFixed(2)}s">`
+      + `<path d="M1 7 Q6.5 1 12 6 Q17.5 1 23 7"/></svg></span>`;
+  }).join('');
+}
+
+// gate
+buildGrass(document.getElementById('grass'));
+buildBirds(document.getElementById('birds'));
+const gateMotes = makeMotes(document.getElementById('motes'));
+gateMotes.start();
+window.__stopMotes = () => gateMotes.stop();     // gate is dismissed
+
+// journey — same treatment, slightly sparser so it stays behind the timeline
+buildGrass(document.getElementById('jgrass'));
+const journeyMotes = makeMotes(document.getElementById('jmotes'), 34000);
+window.__journeyMotes = journeyMotes;
+
+// never animate a canvas the user can't see
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ gateMotes.stop(); journeyMotes.stop(); }
+  else { if(getComputedStyle(gate).display!=='none') gateMotes.start(); journeyMotes.start(); }
+});
+
+/* ============================================================
+   GATE  +  AUDIO   (the ENTER click is the audio gesture)
+   ============================================================ */
+const gate=document.getElementById('gate'), pw=document.getElementById('pw'),
+      gerr=document.getElementById('gerr'), bgm=document.getElementById('bgm'),
+      audioBtn=document.getElementById('audioBtn'), audioHint=document.getElementById('audioHint');
+let muted = localStorage.getItem('muted')==='1';
+
+function paintAudio(){ audioBtn.classList.toggle('muted',muted||bgm.paused); }
+function fadeIn(el,ms){
+  el.volume=0; const t0=performance.now();
+  (function step(now){ const p=Math.min(1,(now-t0)/ms); el.volume=p*0.55;
+    if(p<1) requestAnimationFrame(step); })(t0);
+}
+audioBtn.onclick=()=>{
+  muted=!muted; bgm.muted=muted; localStorage.setItem('muted',muted?'1':'0');
+  if(!muted && bgm.paused) bgm.play().catch(()=>{});
+  paintAudio();
+};
+
+function reveal(){
+  gate.style.opacity='0';
+  setTimeout(()=>{ gate.style.display='none'; window.__stopMotes && window.__stopMotes(); },900);
+  window.__journeyMotes && window.__journeyMotes.start();   // journey ambience takes over
+  document.body.style.overflow='';
+  if(!muted){
+    audioHint.style.transition='opacity .6s'; audioHint.style.opacity='.55';
+    setTimeout(()=>audioHint.style.opacity='0',4200);
+  }
+  initMap();
+  // reveal the verse affordance once, then let it fade
+  const vh=document.getElementById('verseHint');
+  setTimeout(()=>{ vh.style.opacity='.5'; },1400);
+  setTimeout(()=>{ vh.style.opacity='0'; },7000);
+}
+
+/* 0 -> 100 loader. Eases out near the end so it doesn't feel mechanical,
+   and the real build should hold at ~90 until assets actually resolve. */
+function runLoader(done){
+  const box=document.getElementById('loader'),
+        num=document.getElementById('lpct'),
+        bar=document.getElementById('lbarFill');
+  document.querySelector('#gate .stack').style.opacity='0';
+  box.classList.add('on');
+  if(calm){ num.textContent='100'; bar.style.width='100%'; setTimeout(done,320); return; }
+  const DUR=2000, t0=performance.now();
+  let finished=false;
+  const finish=()=>{
+    if(finished) return; finished=true;
+    num.textContent='100'; bar.style.width='100%';
+    setTimeout(done,340);                          // let 100% land before revealing
+  };
+  (function step(now){
+    if(finished) return;
+    const t=Math.min(1,(now-t0)/DUR);
+    const v=Math.round((1-Math.pow(1-t,2.2))*100); // decelerate toward 100
+    num.textContent=v; bar.style.width=v+'%';
+    if(t<1) requestAnimationFrame(step); else finish();
+  })(t0);
+  // rAF stops entirely in a backgrounded tab. Without this guard a guest who
+  // switches apps mid-load comes back to a loader frozen at 0 forever.
+  setTimeout(finish, DUR+700);
+}
+
+function unlock(){
+  // NOTE: real build calls play() synchronously here, muted, then unmutes after
+  // /api/gate resolves — see PLAN.md "Background music".
+  bgm.muted=true;
+  bgm.play().then(()=>{
+    if(!muted){ bgm.muted=false; fadeIn(bgm,1500); }
+    paintAudio();
+  }).catch(()=>paintAudio());
+  runLoader(reveal);
+}
+document.getElementById('enter').onclick=()=>{
+  if(pw.value.normalize('NFKC').trim().toLowerCase()==='kliffandchao') unlock();
+  else { gerr.classList.add('show'); pw.value=''; pw.focus(); }
+};
+pw.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('enter').click(); });
+document.body.style.overflow='hidden';
+paintAudio();
+
+/* ============================================================
+   INTRO VERSE — its own layer, cycles on click
+   ============================================================ */
+const verseEl=document.getElementById('verse'), verseHint=document.getElementById('verseHint');
+let vi=0, vBusy=false;
+function paintVerse(animate){
+  const v=VERSES[vi];
+  const html=`${v.t}<span class="ref">${v.r}</span>`;
+  if(!animate){ verseEl.innerHTML=html; return; }
+  vBusy=true; verseEl.style.opacity='0';
+  setTimeout(()=>{ verseEl.innerHTML=html; verseEl.style.opacity=''; vBusy=false; },340);
+}
+paintVerse(false);
+verseEl.addEventListener('click',()=>{
+  if(vBusy) return;                       // ignore mashing mid-fade
+  vi=(vi+1)%VERSES.length;
+  paintVerse(true);
+  verseHint.style.opacity='0';            // affordance has done its job
+});
+
+/* ============================================================
+   JOURNEY — glass coverflow
+   Replaces the circular wheel per website2.0.pdf §3. One DOM, two drivers:
+   desktop positions every card with a transform from the pinned
+   ScrollTrigger; mobile hands the same cards to native scroll-snap.
+   ============================================================ */
+const flow    = document.getElementById('flow');
+const chapsel = document.getElementById('chapsel');
+const jcopy   = document.getElementById('jcopy');
+
+/* Guard against a zero-width viewport at load (hidden/collapsed pane, some
+   embedded webviews): matchMedia reports `true` and the mobile branch latches
+   permanently, wiping the desktop layout even after the window opens up. */
+const MQ_MOBILE=matchMedia('(max-width:768px)');
+const isMobile = window.innerWidth>0 && MQ_MOBILE.matches;
+const reduced  = matchMedia('(prefers-reduced-motion:reduce)').matches;
+MQ_MOBILE.addEventListener('change',()=>location.reload());  // rebuild on a real breakpoint cross
+
+/* ---------- chapter stepper ----------
+   Labelled by NUMBER only. The chapter's own title lives on each card, so
+   repeating "WHERE WE MET" up here was saying the same thing twice. */
+CHAPTERS.forEach((ch,ci)=>{
+  const b=document.createElement('button');
+  b.dataset.ci=ci;
+  b.innerHTML='<i class="cdot"></i><span>CHAPTER '+(ci+1)+'</span>';
+  b.setAttribute('aria-label','Go to chapter '+(ci+1)+' — '+ch.t);
+  chapsel.appendChild(b);
+});
+const chapBtns=[...chapsel.querySelectorAll('button')];
+
+/* ---------- the cards ---------- */
+flow.innerHTML = STORIES.map((s,k)=>
+  `<article class="cf" data-k="${k}" role="button" tabindex="0"
+            aria-label="${CHAPTERS[s.ci].t} — ${s.cap}">
+     <img src="${s.img}" alt=""${k<3?' fetchpriority="high"':' loading="lazy"'}
+          draggable="false">
+     <div class="veil"></div><div class="rim"></div>
+     <div class="top">
+       <div class="tag">${CHAPTERS[s.ci].n} &middot; ${CHAPTERS[s.ci].t}</div>
+       <div class="ttl">${s.cap}</div>
+     </div>
+     <div class="bot">
+       <span class="count">${String(s.si+1).padStart(2,'0')} / ${String(s.of).padStart(2,'0')}</span>
+     </div>
+   </article>`).join('');
+const cfs=[...flow.querySelectorAll('.cf')];
+
+/* ---------- painting ---------- */
+/* Only ±VISIBLE cards are positioned; the rest are parked off-stage at zero
+   opacity. 19 live cards each with their own transform would otherwise all be
+   recomputed on every scrub frame. */
+const VISIBLE=3;
+
+function paintFlow(i){
+  /* Stride comes from the card's REAL width so it tracks the clamp() in CSS —
+     hardcoding it drifts the moment the viewport crosses a clamp boundary. */
+  const cw=cfs[0].offsetWidth||360;
+  const stride=cw*1.18;
+  cfs.forEach((c,k)=>{
+    const d=k-i, ad=Math.abs(d);
+    if(ad>VISIBLE){
+      c.style.transform=`translate3d(${Math.sign(d)*stride*VISIBLE}px,0,0) scale(.7)`;
+      c.style.opacity='0'; c.style.pointerEvents='none'; c.style.zIndex='0';
+      c.classList.remove('on');
+      return;
+    }
+    const sc = d===0 ? 1 : 0.84-(ad-1)*0.06;
+    c.style.transform=`translate3d(${d*stride}px,0,0) scale(${sc})`;
+    c.style.opacity = d===0 ? '1' : String(Math.max(0,0.62-(ad-1)*0.18));
+    c.style.pointerEvents='auto';
+    c.style.zIndex=String(50-ad);
+    c.classList.toggle('on',d===0);
+  });
+}
+/* Mobile: native scroll-snap owns the geometry, so all this does is mark which
+   card is centred — CSS scales and fades the rest. */
+function paintFlowMobile(i){
+  cfs.forEach((c,k)=>c.classList.toggle('on',k===i));
+}
+
+function paintChap(ci){
+  chapBtns.forEach((b,k)=>b.classList.toggle('on',k===ci));
+}
+
+let copyT=0;
+function writeCopy(k){
+  const s=STORIES[k];
+  if(jcopy.textContent===s.c) return;
+  jcopy.style.opacity='0';
+  clearTimeout(copyT);                       // a fast scrub can outrun the fade
+  copyT=setTimeout(()=>{ jcopy.textContent=s.c; jcopy.style.opacity=''; },170);
+}
+
+let active=-1;
+function render(i){
+  if(i===active) return;                     // only touch the DOM on a real change
+  const prevCi = active>=0 ? STORIES[active].ci : -1;
+  active=i;
+  const s=STORIES[i];
+  if(isMobile) paintFlowMobile(i); else paintFlow(i);
+  writeCopy(i);
+  if(s.ci!==prevCi) paintChap(s.ci);
+}
+
+const firstOf=ci=>STORIES.findIndex(s=>s.ci===ci);
+
+let hST=null;
+/* One pinned timeline, three phases, measured in screens of scroll:
+     1 screen : slide intro -> journey
+     n-1      : step through the stories
+     1 screen : slide journey -> wedding
+   The track is 300vw, so one screen of travel is xPercent -33.333. */
+const WHEEL_SCREENS=STORIES.length-1;             // one screen per story
+const TOTAL_SCREENS=1+WHEEL_SCREENS+1;
+const P1=1/TOTAL_SCREENS;                         // end of intro slide
+const P2=(1+WHEEL_SCREENS)/TOTAL_SCREENS;         // end of the story stretch
+const SEG=100/3;                                  // one panel of a 300vw track
+
+/* Parallax depth, as a fraction of viewport width.
+   Applied to the CONTENT layers, not the backgrounds: the backgrounds fill
+   their panels exactly, so shifting them would expose bare edges, and
+   widening them to compensate would change the intro video's crop (which is
+   deliberately offset so the groom stays in frame). Moving the foreground
+   faster reads identically and can't leak. */
+const PARALLAX=.18;
+
+if(!isMobile && !reduced){
+  gsap.registerPlugin(ScrollTrigger);
+  // foreground layers, paired with the panel index they belong to
+  const PLX=[[document.querySelector('#intro .plate'),0],
+             [document.querySelector('#journey .jcontent'),1],
+             [document.querySelector('#wedding .tabs'),2]].filter(x=>x[0]);
+
+  hST=ScrollTrigger.create({
+    trigger:'#hpin', start:'top top',
+    end:()=> '+='+(TOTAL_SCREENS*window.innerHeight),
+    pin:true, scrub:1,
+    /* Lock ONLY the two slide phases, so you can never rest half-way between
+       panels. The story stretch in the middle returns its own value, i.e. no
+       snap — otherwise every flick would yank to the next story. */
+    snap:{
+      snapTo:v=>{
+        if(v < P1) return v < P1/2 ? 0 : P1;
+        if(v > P2) return v < P2 + (1-P2)/2 ? P2 : 1;
+        return v;                                        // free through the stories
+      },
+      duration:{min:.15,max:.4}, delay:.05, ease:'power2.out'
+    },
+    onUpdate:self=>{
+      const p=self.progress;
+      // how many panels we've travelled: 0 -> 1 -> (hold) -> 2
+      let panel;
+      if(p<=P1)      panel = p/P1;                      // intro -> journey
+      else if(p<=P2) panel = 1;                         // parked on journey
+      else           panel = 1+(p-P2)/(1-P2);           // journey -> wedding
+      gsap.set('#htrack',{xPercent:-SEG*panel});
+
+      // parallax: foreground trails the panel it sits in, so the slide reads
+      // as depth. (panel-i) is panels-from-centred, so it is 0 when settled.
+      const vw=window.innerWidth;
+      for(const [el,i] of PLX) gsap.set(el,{x:(panel-i)*vw*PARALLAX});
+
+      // the nav capsule slides CONTINUOUSLY with the track, so the top bar
+      // doubles as the intro/journey/wedding scroll indicator
+      paintNavInd(panel/2);
+
+      const wt=Math.min(1,Math.max(0,(p-P1)/(P2-P1)));
+      render(Math.round(wt*(STORIES.length-1)));
+      setSec(panel<0.5 ? 0 : panel<1.5 ? 1 : 2);        // scroll-spy
+    }
+  });
+
+  const jumpTo=i=>{                                 // i is a STORY index
+    if(!hST) return;
+    const t=hST.start+(hST.end-hST.start)*(P1+(P2-P1)*(i/(STORIES.length-1)));
+    window.scrollTo({top:t,behavior:'smooth'});
+  };
+  /* BACK / NEXT step a whole CHAPTER — the photos are already browsable by
+     scrolling and by clicking a card. */
+  document.getElementById('jprev').onclick=()=>{
+    const ci=STORIES[active].ci;
+    jumpTo(firstOf(STORIES[active].si>0 ? ci : Math.max(0,ci-1)));
+  };
+  document.getElementById('jnext').onclick=()=>{
+    const ci=STORIES[active].ci;
+    jumpTo(ci>=CHAPTERS.length-1 ? STORIES.length-1 : firstOf(ci+1));
+  };
+  chapBtns.forEach((b,ci)=>{ b.onclick=()=>jumpTo(firstOf(ci)); });
+
+  /* --- swipe on desktop, alongside the scroll ---
+     Both gestures land on the same jumpTo(), so the pinned track stays the
+     single source of truth for position — nothing here moves cards directly.
+     `lock` covers the smooth-scroll so a fast flick can't queue five jumps. */
+  let lock=0, dragFrom=null, dragging=false, swiped=false;
+  const step=dir=>{
+    if(performance.now()<lock) return;
+    const n=Math.min(STORIES.length-1,Math.max(0,active+dir));
+    if(n===active) return;
+    lock=performance.now()+430;
+    jumpTo(n);
+  };
+  flow.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    dragFrom=e.clientX; dragging=true; swiped=false;
+  });
+  flow.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    const dx=e.clientX-dragFrom;
+    if(Math.abs(dx)>64){                  // ~16% of a card: deliberate, not a jiggle
+      step(dx<0?1:-1);
+      dragging=false; swiped=true;        // one card per gesture
+    }
+  });
+  addEventListener('pointerup',()=>{ dragging=false; });
+  addEventListener('pointercancel',()=>{ dragging=false; });
+  /* Trackpad two-finger horizontal swipe. Only claim the event when the
+     gesture is predominantly horizontal, or this would eat vertical scrolling
+     — which is what drives the whole track. */
+  flow.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaX)<=Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    step(e.deltaX>0?1:-1);
+  },{passive:false});
+
+  cfs.forEach((c,k)=>{
+    const go=()=>jumpTo(k);
+    // a drag ends in a click event too; ignore that one
+    c.addEventListener('click',()=>{ if(swiped){ swiped=false; return; } go(); });
+    c.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();go();} });
+  });
+  // the cards' stride is derived from their measured width, so re-place on resize
+  addEventListener('resize',()=>{ if(active>=0) paintFlow(active); });
+
+} else {
+  /* Mobile / reduced-motion: the rail is a native horizontal scroll-snap
+     container. The platform supplies momentum and rubber-banding — no gesture
+     code, and the neighbours bleed off both screen edges for free. */
+  const stride=()=> (cfs[1] ? cfs[1].offsetLeft-cfs[0].offsetLeft
+                            : cfs[0].offsetWidth) || 1;
+  /* No rAF throttle: an rAF-gated `ticking` flag never resets if rAF is
+     throttled (background tab), which jams the handler permanently.
+     render() early-returns when the index hasn't changed. */
+  flow.addEventListener('scroll',()=>{
+    if(!flow.clientWidth) return;
+    render(Math.min(STORIES.length-1,
+           Math.max(0,Math.round(flow.scrollLeft/stride()))));
+  },{passive:true});
+
+  const slideTo=k=>flow.scrollTo({left:k*stride(),behavior:'smooth'});
+  chapBtns.forEach((b,ci)=>{ b.onclick=()=>slideTo(firstOf(ci)); });
+  // tapping a side card brings it to the centre rather than doing nothing
+  cfs.forEach((c,k)=>{
+    const go=()=>{ if(k!==active) slideTo(k); };
+    c.addEventListener('click',go);
+    c.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();go();} });
+  });
+}
+
+render(0);
+/* Re-place on load so the stride is computed from a settled layout. Do NOT
+   render(0) here: browsers restore the previous scroll position on reload, so
+   by the time `load` fires the track may already be parked mid-journey, and
+   forcing index 0 would snap the coverflow back to the first card while the
+   scroll position still said card 11. Re-paint wherever we actually are. */
+addEventListener('load',()=>{
+  if(active<0) return;
+  if(!isMobile) paintFlow(active);
+  paintChap(STORIES[active].ci);
+});
+
+/* ============================================================
+   WEDDING TABS — sliding glass capsule
+   ============================================================ */
+const tabrow=document.getElementById('tabrow'), tabind=document.getElementById('tabind');
+function moveInd(btn){
+  if(!btn||!btn.offsetWidth) return;
+  /* offsetLeft, not getBoundingClientRect: both are relative to .tabrow's
+     padding box here, so they stay in step with the indicator's `left:0`. */
+  tabind.style.width=btn.offsetWidth+'px';
+  tabind.style.transform='translateX('+btn.offsetLeft+'px)';
+}
+tabrow.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  tabrow.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.dataset.panel===b.dataset.tab));
+  moveInd(b);
+  if(b.dataset.tab==='detail') initMap();   // in case it was hidden at first init
+});
+addEventListener('load',()=>moveInd(tabrow.querySelector('.on')));
+addEventListener('resize',()=>moveInd(tabrow.querySelector('.on')));
+
+/* ============================================================
+   MOTIF — one palette + attire note per entourage group
+   ============================================================ */
+/* Guests first: the two groups that cover almost everyone lead, then the
+   entourage roles. `samples` are the attire examples shown when a group is
+   expanded — all placeholder, waiting on real outfit photography. */
+const MOTIF=[
+  {g:'FOR THE LADIES', note:'Long dress in any shade below.',
+   cols:[['#6B7F52','SAGE'],['#A8B894','MOSS'],['#D9D2C2','SAND'],['#F2EFE8','IVORY']],
+   samples:[['#6B7F52','Floor-length, sage'],['#A8B894','Wrap dress, moss'],
+            ['#D9D2C2','Satin slip, sand'],['#F2EFE8','Ivory, sleeved'],
+            ['#8A9C70','Chiffon, olive-grey'],['#C6D0B2','Tea length, leaf']]},
+  {g:'FOR THE GENTLEMEN', note:'Barong tagalog or a dark suit; no white.',
+   cols:[['#14180D','CHARCOAL'],['#2A4300','OLIVE'],['#4A5B33','FERN']],
+   samples:[['#E8E3D6','Piña barong, natural'],['#14180D','Charcoal suit'],
+            ['#2A4300','Olive suit, no tie'],['#4A5B33','Fern, knit tie'],
+            ['#3A4030','Dark slacks + barong'],['#D9D2C2','Linen, sand']]},
+  {g:'PRINCIPAL SPONSORS', note:'Formal — barong tagalog and long gown.',
+   cols:[['#2A4300','OLIVE'],['#4A5B33','FERN'],['#D9D2C2','SAND']],
+   samples:[['#2A4300','Long gown, olive'],['#E8E3D6','Formal barong'],
+            ['#4A5B33','Gown, fern']]},
+  {g:'SECONDARY SPONSORS', note:'Formal, one shade lighter than the principals.',
+   cols:[['#6B7F52','SAGE'],['#A8B894','MOSS'],['#E8E3D6','LINEN']],
+   samples:[['#6B7F52','Gown, sage'],['#E8E3D6','Barong, linen'],
+            ['#A8B894','Gown, moss']]},
+  {g:'BEARERS &amp; FLOWER GIRLS', note:'Ivory and soft moss; comfort first.',
+   cols:[['#F2EFE8','IVORY'],['#C6D0B2','LEAF'],['#D9D2C2','SAND']],
+   samples:[['#F2EFE8','Ivory, tulle'],['#C6D0B2','Leaf sash'],
+            ['#D9D2C2','Shorts + suspenders']]},
+];
+document.getElementById('motifGroups').innerHTML = MOTIF.map(m=>`
+  <details class="motif-row">
+    <summary>
+      <div class="sectitle">${m.g}</div>
+      <div class="swatches">
+        ${m.cols.map(([hex,name])=>
+          `<div class="sw"><i style="background:${hex}"></i><span>${name}</span></div>`).join('')}
+      </div>
+      <p class="motif-note">${m.note}</p>
+      <em class="motif-open"><span class="shut">+ SEE ATTIRE SAMPLES</span><span class="open">– HIDE SAMPLES</span></em>
+    </summary>
+    <div class="motif-more">
+      <div class="samples">
+        ${m.samples.map(([hex,label])=>
+          `<div class="sample"><i style="background:${hex}"></i><span>${label}</span></div>`).join('')}
+      </div>
+      <p class="motif-note" style="margin-top:1.6vh">Placeholder tiles — swap each for a real outfit photo.</p>
+    </div>
+  </details>`).join('');
+
+/* ============================================================
+   DAY-OF TIMELINE — vertical, in its own scroll area
+   ============================================================ */
+const ICONS={
+  door:'<path d="M14 3H6v18h8M14 3l4 2v14l-4 2M10 12h.01"/>',
+  ring:'<path d="M12 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM9 8l3-5 3 5"/>',
+  glass:'<path d="M8 3h8l-1 6a3 3 0 0 1-6 0L8 3zM12 12v8M9 21h6"/>',
+  music:'<path d="M9 18V6l10-2v12M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>',
+  plate:'<path d="M5 3v8a3 3 0 0 0 6 0V3M8 3v18M17 3c-1.5 2-2 4-2 6s.5 3 2 3 2-1 2-3-.5-4-2-6zM17 12v9"/>',
+  wave:'<path d="M12 21a9 9 0 0 0 9-9M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v7M8 13l-2-2a1.5 1.5 0 0 0-2 2l3 5"/>'
+};
+const SCHEDULE=[
+  {t:'3:30 PM', l:'DOORS OPEN',    i:'door'},
+  {t:'4:00 PM', l:'CEREMONY',      i:'ring'},
+  {t:'5:30 PM', l:'COCKTAIL HOUR', i:'glass'},
+  {t:'6:30 PM', l:'RECEPTION',     i:'music'},
+  {t:'7:00 PM', l:'DINNER',        i:'plate'},
+  {t:'9:00 PM', l:'SEND OFF',      i:'wave'},
+];
+document.getElementById('tlInner').innerHTML = SCHEDULE.map(s=>`
+  <div class="tl-stop">
+    <span class="node"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">${ICONS[s.i]}</svg></span>
+    <span><b>${s.t}</b><span>${s.l}</span></span>
+  </div>`).join('');
+
+/* ============================================================
+   MAP — Leaflet + OpenStreetMap tiles (no API key, no billing)
+   ============================================================ */
+const VENUE=[10.282000,123.996444];   // Jpark Island Resort & Waterpark
+let mapReady=false;
+function initMap(){
+  if(mapReady||!window.L) return;
+  const el=document.getElementById('map');
+  if(!el||!el.clientWidth) return;                 // container must have size
+  mapReady=true;
+  const m=L.map(el,{scrollWheelZoom:false}).setView(VENUE,15);   // page scroll must not zoom the map
+  // Plain OSM tiles — genuinely keyless. CARTO's basemaps now return an
+  // "API KEY REQUIRED" watermark image instead of map data. Desaturated via
+  // CSS on the tile pane only, so the attribution stays legible.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:19, crossOrigin:'anonymous'
+  }).addTo(m);
+  L.marker(VENUE,{icon:L.divIcon({className:'pin',html:'<span></span>',
+    iconSize:[15,15],iconAnchor:[8,8]})}).addTo(m)
+    .bindPopup('<b>Jpark Island Resort &amp; Waterpark</b><br>March 5, 2027');
+  setTimeout(()=>m.invalidateSize(),150);
+}
+
+/* ============================================================
+   COUNTDOWN  (client-side only — avoids hydration mismatch)
+   ============================================================ */
+const TARGET_DATE=new Date('2027-03-05T16:00:00+08:00');
+const TARGET=TARGET_DATE.getTime();
+/* Months are counted by calendar, not by dividing days — "5 months" has to
+   mean the same date next month, or it drifts against the wall calendar. */
+function tickCountdown(){
+  const now=new Date();
+  if(TARGET<=now.getTime()){ cdMo.textContent=cdD.textContent='0'; cdH.textContent=cdM.textContent=cdS.textContent='00'; return; }
+  let months=(TARGET_DATE.getFullYear()-now.getFullYear())*12 + (TARGET_DATE.getMonth()-now.getMonth());
+  const anchor=new Date(now); anchor.setMonth(now.getMonth()+months);
+  if(anchor>TARGET_DATE){ months--; anchor.setMonth(anchor.getMonth()-1); }
+  let rem=(TARGET-anchor.getTime())/1000;
+  const D=Math.floor(rem/86400), H=Math.floor(rem%86400/3600),
+        M=Math.floor(rem%3600/60), S=Math.floor(rem%60);
+  cdMo.textContent=months; cdD.textContent=D;
+  cdH.textContent=String(H).padStart(2,'0');
+  cdM.textContent=String(M).padStart(2,'0');
+  cdS.textContent=String(S).padStart(2,'0');
+}
+tickCountdown(); setInterval(tickCountdown,1000);
+
+/* ============================================================
+   SECTION NAV
+   ============================================================ */
+const navBtns=[...document.querySelectorAll('.secnav-items button')];
+
+/* The capsule is the scroll indicator. `t` is 0..1 across the three sections,
+   so it tracks the pinned track continuously rather than snapping on arrival.
+   Driven from the ScrollTrigger's onUpdate, hence `function` (hoisted) — that
+   fires during create(), before anything down here has been evaluated. */
+function paintNavInd(t){
+  const ind=document.getElementById('navind');
+  if(!ind||!ind.parentElement.clientWidth) return;
+  const span=ind.parentElement.clientWidth-6;          // minus the 3px padding
+  const w=span/3;
+  const x=Math.max(0,Math.min(1,t))*(span-w);
+  ind.style.transform='translateX('+x+'px)';
+}
+
+/* `var`, and the buttons re-queried inside, because ScrollTrigger fires
+   onUpdate (which calls setSec) during create() — before any `let`/`const`
+   declared down here has left the temporal dead zone. */
+var curSec=-1;
+function setSec(i){
+  if(i===curSec) return;
+  curSec=i;
+  document.querySelectorAll('.secnav-items button').forEach((b,k)=>b.classList.toggle('on',k===i));
+  const light = i===2;                       // only the wedding panel is light
+  document.body.classList.toggle('on-light',light);
+  const bar=document.getElementById('topbar');
+  /* The bar itself has no surface — the nav pill and RSVP pill carry their own
+     glass and re-tint from `body.on-light` in CSS. All that is set here is
+     `color`, and it is set instantly: an interrupted colour TRANSITION on the
+     logo host once stuck and never landed on its end value, leaving the mark
+     black on a dark section. */
+  if(bar) bar.style.color = light ? '#14180d' : '#fff';
+  audioBtn.classList.toggle('g',!light);
+  audioBtn.classList.toggle('g-l',light);
+  audioBtn.style.color = light ? 'var(--olive)' : '#fff';
+  // with no pinned track (mobile / reduced-motion) nothing else drives the
+  // capsule, so step it here instead
+  if(!hST) paintNavInd(i/2);
+}
+/* the wordmark is a home button */
+(()=>{
+  const br=document.getElementById('brand');
+  br.setAttribute('role','button'); br.setAttribute('tabindex','0');
+  br.setAttribute('aria-label','Back to the intro');
+  const home=()=>document.querySelector('.secnav-items button[data-go="intro"]').click();
+  br.addEventListener('click',home);
+  br.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();home();} });
+})();
+
+navBtns.forEach(b=>{
+  b.onclick=()=>{
+    const to=b.dataset.go;
+    if(!hST) return document.getElementById(to).scrollIntoView({behavior:'smooth'});
+    // inside the pinned track, panels are scroll positions, not element offsets
+    const span=hST.end-hST.start;
+    const t = to==='intro'   ? hST.start
+            : to==='journey' ? hST.start+span*((P1+P2)/2)
+            :                  hST.end-2;
+    // Jump, don't smooth-scroll. Smooth from WEDDING back to INTRO scrubs the
+    // whole scroll timeline — you'd watch every chapter rewind on the way.
+    window.scrollTo({top:t,behavior:'auto'});
+    ScrollTrigger.update();
+  };
+});
+addEventListener('scroll',()=>{
+  if(hST && hST.isActive) return;            // the track's onUpdate owns the state while pinned
+  if(!hST){                                  // mobile / reduced-motion: plain offsets
+    const y=scrollY+innerHeight*0.45;
+    let cur=0;
+    ['intro','journey','wedding'].forEach((s,i)=>{
+      const el=document.getElementById(s); if(el && el.offsetTop<=y) cur=i;
+    });
+    return setSec(cur);
+  }
+  setSec(scrollY < hST.start ? 0 : 2);
+},{passive:true});
+
+/* Browsers restore the previous scroll position on reload. Assuming section 0
+   at boot left the logo white on the cream wedding panel (invisible) until the
+   first scroll event. Sync to wherever we actually are, and again after load
+   once ScrollTrigger has measured. */
+function syncSecNow(){
+  if(hST && scrollY>=hST.start && scrollY<hST.end){ ScrollTrigger.update(); return; }
+  dispatchEvent(new Event('scroll'));
+}
+setSec(0);
+syncSecNow();
+addEventListener('load',()=>paintNavInd(curSec/2));
+addEventListener('resize',()=>{ paintNavInd(curSec/2); moveInd(tabrow.querySelector('.on')); });
+
+/* ScrollTrigger sizes the pin from window.innerHeight. Refreshing while the
+   viewport reports 0 (background tab, hidden/collapsed pane) collapses the
+   whole timeline to zero length and it never recovers. Only refresh when the
+   viewport is real, and catch the moment it becomes real. */
+let refreshedOnce=false;
+function safeRefresh(){
+  if(innerWidth>0 && innerHeight>0 && window.ScrollTrigger){
+    ScrollTrigger.refresh(); refreshedOnce=true; syncSecNow();
+  }
+}
+addEventListener('load',safeRefresh);
+addEventListener('resize',()=>{ if(!refreshedOnce) safeRefresh(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && !refreshedOnce) safeRefresh(); });
+
+/* ============================================================
+   RSVP — phonetic-ish typeahead over the mock list
+   ============================================================ */
+const rsvp=document.getElementById('rsvp');
+document.getElementById('openRsvp').onclick=()=>{
+  rsvp.classList.add('on'); document.body.classList.add('rsvp-open');
+  document.body.style.overflow='hidden';
+};
+document.getElementById('closeRsvp').onclick=()=>{
+  rsvp.classList.remove('on'); document.body.classList.remove('rsvp-open');
+  document.body.style.overflow='';
+};
+
+const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+/* Stand-in for `double-metaphone` — the real build uses the library.
+   Enough to demo the cases that matter: Co→Kho, Chow→Chao, See→Sy, Wy→Uy, Ong→Ang. */
+function phon(s){
+  let t=norm(s); if(!t) return '';
+  t=t.replace(/^wr/,'r').replace(/^(kn|gn|pn)/,'n')
+     .replace(/ph/g,'f').replace(/sch/g,'sk')
+     .replace(/ch|kh|ck|q/g,'k').replace(/sh/g,'s')
+     .replace(/c/g,'k').replace(/x/g,'ks').replace(/z/g,'s')
+     .replace(/[wh]/g,'').replace(/y/g,'i');
+  if(!t) return '';
+  const head=/^[aeiou]/.test(t)?'a':t[0];
+  const rest=t.slice(1).replace(/[aeiou]/g,'');
+  return (head+rest).replace(/(.)\1+/g,'$1');
+}
+function score(q,g){
+  const nq=norm(q); if(nq.length<2) return 0;
+  const pq=phon(q);
+  // weighted: a phonetic hit on the SURNAME outranks an incidental substring elsewhere
+  const fields=[
+    {v:g.last, w:1.00}, {v:g.nick||'', w:.95}, {v:g.first, w:.90},
+    {v:g.first+' '+g.last, w:.90}, {v:g.last+' '+g.first, w:.90},
+  ].filter(f=>f.v);
+  let best=0;
+  for(const {v,w} of fields){
+    const nf=norm(v); let s=0;
+    if(nf===nq) s=100;
+    else if(nf.startsWith(nq)) s=90;
+    else if(nf.includes(nq)) s=68;
+    else if(pq && pq===phon(v)) s=78;          // phonetic
+    if(s) best=Math.max(best,s*w);
+  }
+  return best;
+}
+const qEl=document.getElementById('q'), suggEl=document.getElementById('sugg');
+let timer;
+qEl.addEventListener('input',()=>{
+  clearTimeout(timer);
+  timer=setTimeout(()=>{                       // 150ms debounce, as speced
+    const q=qEl.value;
+    if(norm(q).length<2){suggEl.innerHTML='';return;}
+    const hits=GUESTS.map(g=>({g,s:score(q,g)})).filter(x=>x.s>=50)
+                     .sort((a,b)=>b.s-a.s).slice(0,8);
+    suggEl.innerHTML = hits.length
+      ? hits.map(({g})=>`<button data-id="${g.id}">${g.first} ${g.last}${
+          STATE[g.id]?'<span class="done">✓ ALREADY RSVP\'D</span>':''}</button>`).join('')
+      : `<button disabled style="opacity:.45">No match — check the spelling or ask the couple</button>`;
+  },150);
+});
+suggEl.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-id]'); if(!b) return;
+  showParty(b.dataset.id);
+});
+
+const picks={};
+function showParty(id){
+  const me=GUESTS.find(g=>g.id===id);
+  const mates=GUESTS.filter(g=>g.party===me.party);
+  suggEl.innerHTML=''; qEl.value=`${me.first} ${me.last}`;
+
+  const prior=mates.find(m=>STATE[m.id]);
+  document.getElementById('banner').innerHTML = prior
+    ? `<div class="banner g">We've got your RSVP from <b>${STATE[prior.id].at}</b>, submitted by ${STATE[prior.id].by}.<br>You can still update it — your previous answers are filled in below.</div>`
+    : '';
+  document.getElementById('plabel').textContent =
+    mates.length>1 ? `RESPONDING FOR ${me.label.toUpperCase()} — ${mates.length} GUESTS` : 'RESPONDING FOR YOURSELF';
+
+  document.getElementById('members').innerHTML = mates.map(m=>{
+    const st=STATE[m.id]?.status||null; picks[m.id]=st;
+    return `<div class="member g">
+      <div class="who">${m.first} ${m.last}${m.id===me.id?' <span style="opacity:.45">(you)</span>':''}
+        ${STATE[m.id]?`<em>ANSWERED BY ${STATE[m.id].by.toUpperCase()} ON ${STATE[m.id].at.toUpperCase()}</em>`:''}
+      </div>
+      <div class="seg" data-for="${m.id}">
+        <button class="yes${st==='attending'?' on':''}" data-v="attending">ATTENDING</button>
+        <button class="no${st==='not_attending'?' on':''}" data-v="not_attending">CAN'T MAKE IT</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('send').textContent = prior ? 'UPDATE OUR RSVP' : 'SEND OUR RSVP';
+  document.getElementById('party').style.display='block';
+  checkReady();
+}
+document.getElementById('members').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-v]'); if(!b) return;
+  const seg=b.parentElement;
+  seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  picks[seg.dataset.for]=b.dataset.v;
+  checkReady();
+});
+function checkReady(){
+  const vals=Object.values(picks);
+  document.getElementById('send').disabled = vals.length===0 || vals.some(v=>!v);
+}
+document.getElementById('send').onclick=()=>{
+  const going=Object.values(picks).filter(v=>v==='attending').length;
+  document.getElementById('rbody').innerHTML=`
+    <div class="ok">
+      <div class="tick g">✓</div>
+      <h3>THANK YOU</h3>
+      <p class="rsub" style="margin-top:2.4vh">
+        Your RSVP is in — ${going} attending.<br>
+        In the real build this appends a row to <b>RSVP_Log</b> and emails the couple.
+      </p>
+      <button class="submit" id="rHome" style="max-width:320px;margin:4vh auto 0">
+        BACK TO HOME
+      </button>
+      <a class="credit" data-chao>
+        <svg class="ig" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/>
+          <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>SITE &amp; STATIONERY BY <b>CHAODESIGN.PH</b></span>
+      </a>
+    </div>`;
+  bootCredits();                       // the block above was just re-rendered
+  document.getElementById('rHome').onclick=()=>{
+    document.getElementById('closeRsvp').click();
+    document.querySelector('.secnav-items button[data-go="intro"]').click();
+  };
+};
+</script>
+</body>
+</html>

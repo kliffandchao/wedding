@@ -1,0 +1,4 @@
+# local dev server — not needed on Vercel
+serve.py
+# original upload, superseded by the painted-out intro.jpg
+img/intro-src.webp

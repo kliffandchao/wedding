@@ -47,7 +47,10 @@
   .brand{
     position:fixed;left:3.2vw;top:3.4vh;z-index:60;
     width:clamp(52px,8vh,84px);
-    transition:color .35s ease, filter .35s ease;
+    /* NO transition on `color`. An interrupted colour transition here could
+       stick and never land on its end value — the logo stayed black on the
+       dark intro while the nav and audio icon (which have no colour
+       transition) were correctly white. Swap instantly instead. */
     filter:drop-shadow(0 1px 6px rgba(0,0,0,.45));
   }
   body.on-light .brand{filter:none}
@@ -93,16 +96,22 @@
     position:fixed;left:3.2vw;bottom:5.2vh;z-index:60;
     display:flex;align-items:flex-end;gap:2.5px;height:16px;padding:6px;
   }
-  .audio-btn span{
-    width:2.5px;background:currentColor;border-radius:1px;
+  .audio-btn .spk{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;align-self:center}
+  .audio-btn .spk .wave{transition:opacity .2s}
+  .audio-btn .spk .slash{opacity:0;transition:opacity .2s}
+  .audio-btn.muted .spk .wave{opacity:0}
+  .audio-btn.muted .spk .slash{opacity:1}
+  .audio-btn .eq{display:flex;align-items:flex-end;gap:2.5px;height:16px}
+  .audio-btn .eq i{
+    width:2.5px;background:currentColor;border-radius:1px;display:block;
     animation:eq .9s ease-in-out infinite alternate;
   }
-  .audio-btn span:nth-child(1){height:40%;animation-delay:-.4s}
-  .audio-btn span:nth-child(2){height:100%;animation-delay:-.15s}
-  .audio-btn span:nth-child(3){height:62%;animation-delay:-.65s}
-  .audio-btn span:nth-child(4){height:82%;animation-delay:-.3s}
+  .audio-btn .eq i:nth-child(1){height:40%;animation-delay:-.4s}
+  .audio-btn .eq i:nth-child(2){height:100%;animation-delay:-.15s}
+  .audio-btn .eq i:nth-child(3){height:62%;animation-delay:-.65s}
+  .audio-btn .eq i:nth-child(4){height:82%;animation-delay:-.3s}
   @keyframes eq{from{transform:scaleY(.30)}to{transform:scaleY(1)}}
-  .audio-btn.muted span{animation-play-state:paused;transform:scaleY(.22);opacity:.5}
+  .audio-btn.muted .eq i{animation-play-state:paused;transform:scaleY(.22);opacity:.5}
   .audio-hint{
     position:fixed;left:calc(3.2vw + 34px);bottom:5.4vh;z-index:60;
     font-size:10px;letter-spacing:.14em;opacity:0;pointer-events:none;white-space:nowrap;
@@ -144,7 +153,11 @@
   #gate input{
     width:100%;height:clamp(42px,6.17vh,66px);background:var(--field);
     border:0;outline:0;padding:0 1.4em;color:#111;
-    letter-spacing:.2em;font-size:clamp(11px,1.5vh,16px);text-align:center;
+    letter-spacing:.2em;text-align:center;
+    /* iOS Safari auto-zooms any focused input below 16px and never zooms back
+       out — which left the whole site scaled up after unlocking. 16px floor
+       prevents the zoom entirely; don't drop it. */
+    font-size:max(16px, clamp(11px,1.5vh,16px));
   }
   #gate button{
     width:100%;height:clamp(42px,6.17vh,66px);background:var(--olive);
@@ -211,14 +224,10 @@
     position:absolute;inset:0;display:flex;align-items:flex-end;
     justify-content:space-between;gap:5vw;padding:0 3.4vw 9.5vh;
   }
+  /* the real wordmark, not the Pacifico stand-in */
   #intro .lockup{
-    font-family:Pacifico,cursive;line-height:1;text-align:left;
-    text-shadow:0 2px 18px rgba(0,0,0,.34);flex:none;
-  }
-  #intro .lockup b{display:block;font-weight:400;font-size:clamp(26px,6vh,58px)}
-  #intro .lockup em{
-    display:block;font-style:normal;margin:.15em 0 .05em .5em;
-    font-size:clamp(10px,1.9vh,18px);opacity:.92;
+    flex:none;width:clamp(120px,19vh,210px);color:#fff;
+    filter:drop-shadow(0 2px 18px rgba(0,0,0,.45));
   }
   .versecol{display:flex;flex-direction:column;align-items:flex-end;gap:.9vh;max-width:min(48vw,540px)}
   .verse{
@@ -315,31 +324,38 @@
     display:flex;justify-content:center;
     padding-bottom:22px;              /* rotated cards overhang the sizer */
   }
+  /* --- the polaroid itself: shared by the desktop fan AND the mobile stack.
+         Keep this unscoped; scoping it to .deck left the mobile cards with no
+         frame at all and their captions piled on top of each other. --- */
+  .card{
+    background:#f6f2e8;
+    /* px, NOT %. These cards are absolutely positioned, so percentage padding
+       resolves against the PARENT's width, not the card's own ~210px —
+       `13%` was silently becoming 94px of dead white. */
+    padding:clamp(6px,.72vw,10px) clamp(6px,.72vw,10px) clamp(7px,.85vw,12px);
+    border-radius:2px;box-shadow:0 12px 30px rgba(0,0,0,.45);
+    cursor:pointer;
+  }
+  .card .ph{aspect-ratio:4/3;overflow:hidden;background:#cfcabd}
+  .card .ph img{width:100%;height:100%;object-fit:cover}
+  .card figcaption{
+    margin-top:6px;text-align:center;color:#3a4030;line-height:1.25;
+    font-size:clamp(8.5px,1.12vh,12px);letter-spacing:.06em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
   .deck .sizer{visibility:hidden;pointer-events:none}
   .deck .sizer.card{position:relative;box-shadow:none;transform:none}
   .deck .card{
     position:absolute;left:50%;top:0;
     width:clamp(150px,16.5vw,236px);
-    background:#f6f2e8;
-    /* px, NOT %. The card is absolutely positioned, so percentage padding
-       resolves against .deck's width (720px), not the card's own ~210px —
-       `13%` was silently becoming 94px of dead white. */
-    padding:clamp(6px,.72vw,10px) clamp(6px,.72vw,10px) clamp(7px,.85vw,12px);
-    border-radius:2px;box-shadow:0 12px 30px rgba(0,0,0,.45);
-    transform-origin:50% 60%;cursor:pointer;
+    transform-origin:50% 60%;
     transition:transform .62s cubic-bezier(.22,.9,.28,1), opacity .42s ease,
                box-shadow .3s ease;
     will-change:transform,opacity;
   }
   .deck .card.sel{box-shadow:0 20px 46px rgba(0,0,0,.6)}
   .deck .card:not(.sel):hover{filter:brightness(1.06)}
-  .deck .card .ph{aspect-ratio:4/3;overflow:hidden;background:#cfcabd}
-  .deck .card .ph img{width:100%;height:100%;object-fit:cover}
-  .deck .card figcaption{
-    margin-top:6px;text-align:center;color:#3a4030;line-height:1.25;
-    font-size:clamp(8.5px,1.12vh,12px);letter-spacing:.06em;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
   .jfade{transition:opacity .32s ease}
   .jarrows{
     position:absolute;left:50%;transform:translateX(-50%);bottom:12.1vh;
@@ -466,9 +482,21 @@
   .tl-cue em{font-style:normal;font-size:7.5px;letter-spacing:.24em;color:var(--olive)}
   .tl-wrap{position:relative;width:min(80vw,330px);margin:0 auto}
 
-  .swatches{display:flex;justify-content:center;gap:clamp(12px,2.2vw,30px);margin-top:5vh;flex-wrap:wrap}
+  /* five groups won't fit a 100vh panel — give them their own scroll area,
+     same pattern as the day-of timeline */
+  .motif-scroll{
+    height:min(50vh,380px);overflow-y:auto;overscroll-behavior:contain;
+    width:min(86vw,660px);margin:3vh auto 0;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 7%,#000 93%,transparent);
+            mask-image:linear-gradient(to bottom,transparent,#000 7%,#000 93%,transparent);
+  }
+  .motif-scroll::-webkit-scrollbar{display:none}
+  .motif-row{padding:2.6vh 0}
+  .motif-row + .motif-row{border-top:1px solid rgba(20,24,13,.1)}
+  .motif-note{margin-top:1.8vh;font-size:clamp(9px,1.18vh,12.5px);letter-spacing:.08em;color:#4a5140}
+  .swatches{display:flex;justify-content:center;gap:clamp(12px,2.2vw,30px);margin-top:2.4vh;flex-wrap:wrap}
   .sw{display:flex;flex-direction:column;align-items:center;gap:1.2vh}
-  .sw i{width:clamp(48px,7vh,82px);height:clamp(48px,7vh,82px);border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  .sw i{width:clamp(38px,5.4vh,64px);height:clamp(38px,5.4vh,64px);border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
   .sw span{font-size:9px;letter-spacing:.2em;color:var(--muted)}
   .sectitle{font-weight:500;letter-spacing:.3em;font-size:clamp(12px,1.9vh,20px);margin-bottom:1.2vh}
   .placeholder{margin-top:3vh;font-size:11px;letter-spacing:.14em;color:var(--muted);line-height:2}
@@ -546,9 +574,58 @@
     #journey,#wedding{height:auto}
     .tl{height:auto;max-height:none;overflow:visible;width:auto;-webkit-mask-image:none;mask-image:none}
     .tl-cue{display:none}
-    .deck{width:min(86vw,340px)}
-    .mphoto{width:100%;background:#f6f2e8;padding:5.5% 5.5% 5.5%}
-    .mphoto img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+    .deck{display:none}                       /* the fan is desktop-only */
+    #journey{padding:3vh 0 20vh;height:auto}
+
+    /* --- the wheel, adapted. A 188vh circle collapses to a vertical line at
+       375px, so use a much larger radius and show only the top sliver: same
+       arc language, readable on a narrow screen. --- */
+    .marc{position:relative;height:96px;overflow:hidden;margin-bottom:1vh}
+    .mwheel{
+      position:absolute;left:50%;top:0;
+      width:840px;height:840px;border-radius:50%;
+      border:1px solid rgba(255,255,255,.34);
+      transform:translateX(-50%);
+      transition:transform .55s cubic-bezier(.3,.9,.3,1);
+    }
+    .mmk{position:absolute;left:50%;top:50%;width:0;height:0}
+    .mmk .d{
+      position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;
+      background:#fff;opacity:.45;transform:translate(-50%,-50%);
+      transition:width .35s,height .35s,opacity .35s;
+    }
+    .mmk.on .d{width:15px;height:15px;opacity:1;box-shadow:0 0 0 5px rgba(255,255,255,.12)}
+    /* Labels are hidden on mobile: "FAVOR CONFERENCE" is ~110px wide and the
+       outer markers sit past the screen edge, so they clipped mid-word. The
+       active chapter's title is right below the arc anyway. */
+    .mmk .t{display:none}
+
+    /* --- one chapter per screen, swipe left/right. Native scroll-snap: the
+       platform supplies momentum and rubber-banding, no gesture code. --- */
+    .mswipe{
+      display:flex;overflow-x:auto;overscroll-behavior-x:contain;
+      scroll-snap-type:x mandatory;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+    }
+    .mswipe::-webkit-scrollbar{display:none}
+    .mpanel{flex:0 0 100%;scroll-snap-align:center;padding:0 7vw;text-align:center}
+    .mpanel h2{font-weight:500;letter-spacing:.24em;font-size:clamp(15px,4.6vw,22px);margin-bottom:.6vh}
+    .mpanel .chapno{font-size:9px;letter-spacing:.3em;opacity:.55;margin-bottom:2.4vh}
+    .mstack{
+      position:relative;width:min(70vw,280px);margin:0 auto;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+    }
+    .mstack .card{
+      position:absolute;left:0;right:0;top:0;width:100%;
+      transform-origin:50% 90%;
+      transition:transform .45s cubic-bezier(.22,.9,.28,1),opacity .3s ease;
+    }
+    .mstack .card:first-child{position:relative}   /* sizes the stack */
+    .mcopy{margin:3vh auto 0;max-width:86vw}
+    .mdots{display:flex;justify-content:center;gap:7px;margin-top:2.2vh}
+    .mdots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.3;transition:opacity .25s}
+    .mdots i.on{opacity:1}
+    .mswipehint{margin-top:3vh;font-size:8.5px;letter-spacing:.24em;opacity:.4;text-align:center}
     #wedding{overflow:visible;padding:12vh 0 16vh}
     #journey{padding:14vh 0 12vh}
     .jcontent{position:static;transform:none;width:auto;padding:0 8vw}
@@ -563,10 +640,14 @@
     /* The bottom nav is fixed, so content scrolls underneath it. A pill-shaped
        backdrop left text poking out either side; use a full-width gradient
        scrim instead, tinted to match the section behind. */
+    /* Lift it clear of the bottom edge: it sat right on the screen edge,
+       overlapping the iOS home indicator and barely tappable. */
     .secnav{
       left:0;right:0;width:100%;transform:none;
-      padding:2.2vh 0 2.4vh;bottom:0;
+      padding:2.4vh 0 calc(3.2vh + env(safe-area-inset-bottom,0px));
+      bottom:0;
     }
+    .secnav-items button{padding:10px 0}    /* ≥44px tap target (Apple HIG) */
     .secnav::before{
       content:"";position:absolute;left:0;right:0;top:-4vh;bottom:0;z-index:-1;
       background:linear-gradient(to top,rgba(8,11,6,.94) 45%,rgba(8,11,6,0));
@@ -575,7 +656,11 @@
     body.on-light .secnav::before{
       background:linear-gradient(to top,rgba(251,250,247,.97) 45%,rgba(251,250,247,0));
     }
-    .audio-btn{bottom:2.4vh}
+    /* mute control was invisible on phones — keep it, just lift it clear too */
+    .audio-btn{
+      bottom:calc(3.4vh + env(safe-area-inset-bottom,0px));
+      left:3.8vw;padding:9px 8px;
+    }
     #journey{padding-bottom:20vh}
   }
   @media (prefers-reduced-motion:reduce){
@@ -584,6 +669,7 @@
 </style>
 </head>
 <body>
+<svg id="kc-sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><symbol id="kc-logo" viewBox="0 0 2919.83 2508.83"><g id="Layer_2-2" data-name="Layer 2"> <g> <g> <path d="M708.28,55.59c36.58,32.74,86.62,50.05,13.47,132.83-84.7,94.29-315.71,415.75-334.93,513.93,75.07-55.8,450.41-435.02,500.46-219.41,9.63,40.41-34.61,90.46-55.8,121.23-21.19-19.22-44.29-36.58-65.43-55.8-148.22,98.17-288.77,205.98-423.52,321.46,109.73,78.9,236.76,128.95,369.59,152.05l34.66-67.35c59.68,44.25,17.31,153.97-48.13,169.41-142.42,32.69-333.01-75.07-429.27-171.32-67.35,103.93-71.19,150.14-109.73,223.29-55.8-5.8-80.82-30.82-92.37-53.93-11.55-23.06,3.84-53.88,15.39-84.66C171.2,802.48,483.07,219.2,663.99,22.85c15.43,11.55,30.82,21.19,44.29,32.74Z"/> <path d="M1333.85,848.65c-51.96,71.23-179,229.09-284.89,290.69-59.68,36.58-98.17,23.11-152.05-9.63-25.02-15.39-40.46-36.58-40.46-65.43,0-286.8,180.96-789.22,386.94-1041.42,26.94-32.69,50.05-26.94,88.54-3.84,42.33,25.02,98.17,65.43,38.49,102.01-78.9,48.13-327.21,477.4-398.45,812.33-21.19,96.26-19.27,155.94,5.75,155.94,67.4,0,267.58-244.48,344.57-304.16,38.49,13.47,36.58,28.86,11.55,63.52Z"/> <path d="M1510.93,509.88c28.86,25.02,78.9,26.94,63.52,51.96-65.43,111.64-105.84,177.08-152.05,282.97-180.96,417.72,103.93,125.11,254.11-61.6,23.06,15.39,50.05,23.11,38.49,46.21-57.76,113.56-165.57,230.96-273.38,294.52-71.19,42.33-90.46,38.49-155.89-7.72-90.5-61.6,1.92-238.68,55.8-425.43,3.88-13.47-7.67-34.61,5.8-71.19,23.11-63.52,71.23-138.63,105.84-138.63,21.19,0,44.29,17.35,57.76,28.9ZM1655.31,384.77c-7.72,9.59-17.35,21.14-25.02,30.78-34.66,40.41-57.76,57.76-96.26,23.11-38.49-34.66,21.19-130.91,48.13-157.85,32.74-32.69,59.68,1.92,86.62,15.39,34.66,25.02,21.19,44.29-13.47,88.58Z"/> <path d="M2415.63,548.37c-65.43,128.95-71.19,138.58-138.58,267.58,115.48,61.6,281.05,23.06,354.2-26.99l15.39,34.66c-59.68,84.7-179,109.73-296.44,96.26,48.13,186.71-86.62,506.26-204.06,615.98-69.27,61.6-94.29,53.88-190.55-9.63-175.16-113.56,167.49-737.26,329.18-987.49-100.09,0-311.87,138.58-417.72,315.71,75.07,232.92-75.07,571.69-192.51,681.42-69.27,61.6-94.29,53.88-190.55-9.63-209.82-134.75,377.26-1116.44,458.13-1210.78,61.6,36.58,92.37,51.96,63.52,113.56-65.43,129-132.83,257.95-200.18,386.94,105.84-152.1,367.67-358.04,492.79-385.02,57.72-11.55,152.05,34.66,117.4,117.44ZM1597.55,1406.91c82.79-100.14,292.6-371.55,177.08-529.36-75.07,167.44-142.42,338.77-177.08,529.36ZM2069.15,1406.91c82.79-100.14,292.6-371.55,177.12-529.36-75.11,167.44-142.47,338.77-177.12,529.36Z"/> </g> <g> <path d="M521.38,1796.59c-132.83,17.35-550.5,639.09-284.89,577.49,115.48-30.78,223.29-84.7,325.3-148.22,53.93-34.66,107.81-73.15,163.65-111.64,34.66,26.94,36.58,42.33,1.92,69.32-115.48,98.17-238.68,205.94-381.14,267.53-88.54,38.49-154.02,55.84-229.09,9.63-19.22-13.47-32.69-26.94-51.96-38.49-57.76-40.41-73.15-98.17-61.6-161.69,32.74-190.59,259.86-444.66,396.53-542.83,84.7-55.84,129-63.52,204.06,11.55,26.94,28.86,36.58,61.6,21.19,94.29-28.9,77.03-75.07,140.55-127.08,198.27-25.02,23.11-28.86,21.19-73.15-23.06,30.82-67.4,78.95-125.16,96.26-202.15Z"/> <path d="M1031.48,2008.33c84.7-61.6,154.02-127.03,236.8-32.69,28.86,32.69,23.06,46.16,1.92,82.74-48.13,84.7-205.98,263.74-184.79,352.28,82.74,25.02,284.89-236.76,358.04-284.89,36.58-23.11,42.33,19.22,48.13,38.49-94.34,88.54-180.96,248.31-294.52,309.91-53.93,28.9-102.05,1.92-144.38-34.66-127.03-109.73,3.84-277.17,53.88-390.73-159.77,82.74-296.44,321.46-404.2,460.05-34.66-21.19-80.87-34.66-80.87-82.79,0-227.12,386.9-902.79,540.91-1058.72,42.33-42.33,109.73,44.29,140.5,78.95,3.88,17.31-57.72,34.66-78.9,59.68-150.14,192.47-304.16,458.13-398.45,683.33,55.8-44.29,148.22-138.58,205.94-180.96Z"/> <path d="M1682.12,2299.02c-26.94,30.78-55.84,57.76-90.46,78.9-75.11,48.13-182.88-9.59-182.88-100.09,0-57.72,15.39-121.28,40.41-184.79,57.76-142.42,165.53-286.8,267.58-358.04,140.5-100.09,225.21-63.52,333.01,67.4l38.49-38.49c26.94-26.99,38.49-7.72,57.76,9.59,28.86,25.02,73.15,38.49,57.72,63.52-65.43,111.69-136.67,232.92-182.88,338.81-180.91,417.72,103.97,125.11,254.11-61.6,23.11,15.39,50.05,23.11,38.49,46.21-57.76,113.56-165.53,230.96-273.33,294.52-71.23,42.33-90.46,38.49-155.94-7.72-98.17-67.35-23.11-282.97,77.03-465.85-92.42,105.89-184.79,213.7-279.13,317.63ZM1930.43,1890.93c30.82-36.58,30.82-48.13-1.92-86.62-154.02,53.88-386.94,331.1-404.25,494.7,142.47-129,282.97-263.7,406.16-408.08Z"/> <path d="M2873.62,2131.53c25.02-19.22,36.58,11.55,46.21,38.49-69.32,71.23-155.94,148.27-323.43,121.28h-1.92c-92.37,100.09-175.16,223.29-302.19,138.63-59.68-36.58-98.17-84.7-80.87-154.02,7.72-46.21,26.94-128.95,59.68-188.63,25.02-44.29,57.76-76.99,100.09-73.15,17.35,1.92,32.74,3.84,34.66-9.63,26.94-127.03,171.32-331.1,311.83-327.26,84.7,5.8,130.91,61.64,121.28,142.47-7.72,138.58-96.26,275.25-175.16,386.9,76.99,15.43,125.11-9.59,209.82-75.07ZM2498.24,2245.13c-32.69-17.35-73.11-73.15-75.07-121.28-36.58,65.43-75.07,136.67-80.82,227.12,1.92,32.74,88.54-28.86,155.89-105.84ZM2765.82,1767.74c-138.58,73.15-234.84,254.06-194.43,386.9,92.42-125.11,163.65-240.59,194.43-386.9Z"/> </g> <g> <path d="M238.64,1512.8c-6.48,7.4-13.47,13.93-21.78,19-18.13,11.6-44.06-2.28-44.06-24.11,0-13.88,3.7-29.22,9.73-44.52,13.93-34.29,39.86-69.09,64.47-86.26,33.84-24.11,54.25-15.3,80.23,16.26l9.27-9.27c6.48-6.53,9.27-1.87,13.93,2.28,6.94,6.03,17.58,9.27,13.88,15.3-15.75,26.94-32.92,56.12-44.06,81.64-43.56,100.64,25.07,30.14,61.23-14.84,5.57,3.7,12.05,5.57,9.27,11.14-13.93,27.35-39.86,55.62-65.84,70.96-17.17,10.18-21.78,9.27-37.58-1.87-23.65-16.21-5.57-68.17,18.58-112.24-22.28,25.53-44.52,51.51-67.26,76.53ZM298.46,1414.49c7.44-8.81,7.44-11.6-.46-20.87-37.12,12.97-93.2,79.77-97.4,119.18,34.34-31.1,68.17-63.52,97.85-98.31Z"/> <path d="M569.6,1479.43c-6.03,22.69-72.83,79.27-96.03,76.99-6.94-.96-12.97-5.11-19.45-10.23-33.88-25.48,26.44-116.85,42.19-143.74-48.68,32.47-95.98,84.84-110.37,143.74-1.87,6.99-10.68,4.66-14.38,3.24-11.14-4.61-14.38-9.27-11.6-20.87,10.68-42.65,42.65-124.29,74.66-154.43,12.05,1.87,25.07,15.3,19.5,20.87l-28.77,45.94c21.78-15.8,83.93-90,109.45-62.15,7.4,7.85,7.4,12.51,3.24,22.24-18.08,41.28-48.68,84.89-59.82,114.11-11.6,32.92,34.29,16.21,81.14-46.39,9.73,8.36,10.23,9.73,10.23,10.68Z"/> <path d="M777.14,1349.56l-10.64-3.24c-28.77,35.71-59.36,95.53-76.53,138.17-3.24,7.9-5.57,13.47-8.36,21.37-34.29,97.35,66.35-21.37,80.69-36.21,9.32,4.66,11.6,4.66,5.11,13.93-16.67,24.57-56.12,70.5-82.56,83.01-19,9.27-40.32-3.7-43.56-23.65-4.66-26.44,14.84-60.27,23.65-84.84-27.4,26.9-50.55,57.03-76.53,84.84-14.38,15.75-21.32,14.84-37.12.91-25.94-23.15,36.21-194.75,97.4-150.23,12.51,8.81,23.2,20.41,34.34,30.59,22.69-38.95,61.19-113.61,95.98-140.5,39.41,20.41,12.05,38.04-1.87,65.84ZM663.07,1433.95c-1.87-4.61-3.7-9.27-6.03-13.42-24.57-41.28-79.77,89.04-84.89,105.25,31.55-29.18,59.36-62.6,90.91-91.83Z"/> </g> </g> </g></symbol></svg>
 
 <!-- ============ 1. GATE ============ -->
 <div id="gate">
@@ -611,8 +697,13 @@
 <!-- ============ persistent chrome ============ -->
 <div class="brand logo" id="brand" aria-label="Kliff and Chao" role="img"></div>
 <button class="rsvp-pill" id="openRsvp">RSVP</button>
-<button class="audio-btn" id="audioBtn" title="Toggle music" aria-label="Toggle music">
-  <span></span><span></span><span></span><span></span>
+<button class="audio-btn" id="audioBtn" title="Toggle music" aria-label="Toggle music" aria-pressed="false">
+  <svg class="spk" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+    <g class="wave"><path d="M16.8 8.6a4.8 4.8 0 0 1 0 6.8"/><path d="M19.2 6.2a8 8 0 0 1 0 11.6"/></g>
+    <path class="slash" d="M17 9l5 6M22 9l-5 6"/>
+  </svg>
+  <span class="eq"><i></i><i></i><i></i><i></i></span>
 </button>
 <div class="audio-hint" id="audioHint">♪ THE BLESSING — TAP TO MUTE</div>
 
@@ -637,7 +728,6 @@
            aria-hidden="true" tabindex="-1"></video>
   </div>
   <div class="plate">
-    <div class="lockup"><b>kliff</b><em>and</em><b>chao</b></div>
     <div class="versecol">
       <button class="verse" id="verse" aria-live="polite" title="Tap for another verse"></button>
       <div class="verse-hint" id="verseHint">TAP THE VERSE FOR ANOTHER</div>
@@ -709,15 +799,8 @@
   </div>
 
   <div class="panel" data-panel="mottif">
-    <div class="sectitle">FOR THE LADIES</div>
-    <div class="swatches">
-      <div class="sw"><i style="background:#2A4300"></i><span>OLIVE</span></div>
-      <div class="sw"><i style="background:#6B7F52"></i><span>SAGE</span></div>
-      <div class="sw"><i style="background:#A8B894"></i><span>MOSS</span></div>
-      <div class="sw"><i style="background:#D9D2C2"></i><span>SAND</span></div>
-      <div class="sw"><i style="background:#F2EFE8"></i><span>IVORY</span></div>
-    </div>
-    <p class="placeholder">Palette is a placeholder — swap for the real motif.<br>“For the gentlemen” section to follow.</p>
+    <div class="motif-scroll"><div id="motifGroups"></div></div>
+    <p class="placeholder">All palettes and attire notes are placeholder — swap for the real motif.</p>
   </div>
 
   <div class="panel" data-panel="entourage">
@@ -852,27 +935,20 @@ const VERSES = [
    LOGO — fetched once and inlined into every .logo container, so the
    paths inherit currentColor. Falls back to an <img> if the fetch fails.
    ============================================================ */
-(async function bootLogos(){
+/* The logo markup is inlined in the page as <symbol id="kc-logo"> (see the
+   sprite right after <body>), so this needs NO network call.
+   Previously it fetched the .svg, which fails outright under file:// — the
+   fallback then rendered a plain <img>, and a standalone SVG resolves
+   `currentColor` to BLACK, so the mark stayed black on dark sections. */
+(function bootLogos(){
   const hosts=[...document.querySelectorAll('.logo')];
-  if(!hosts.length) return;
-  try{
-    const res=await fetch('img/kliffandchao-logo.svg',{cache:'no-cache'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const txt=await res.text();
-    const svg=new DOMParser().parseFromString(txt,'image/svg+xml').querySelector('svg');
-    if(!svg) throw new Error('no <svg> root');
-    svg.removeAttribute('width'); svg.removeAttribute('height');
-    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
-    // A <style> inside inline SVG is DOCUMENT-scoped, not shadowed — it would
-    // leak `.cls-1{fill:...}` into the whole page and pin the fill to one
-    // colour. Drop it and let `fill` inherit from `.logo svg{fill:currentColor}`.
-    svg.querySelectorAll('style').forEach(s=>s.remove());
-    svg.querySelectorAll('[fill]').forEach(n=>n.removeAttribute('fill'));
-    hosts.forEach(h=>{ h.innerHTML=''; h.appendChild(svg.cloneNode(true)); });
-  }catch(e){
-    console.warn('logo inline failed, falling back to <img>:',e.message);
-    hosts.forEach(h=>{ h.innerHTML='<img src="img/kliffandchao-logo.svg" alt="Kliff and Chao" style="width:100%;height:auto">'; });
-  }
+  const sym=document.getElementById('kc-logo');
+  if(!hosts.length||!sym) return;
+  const vb=sym.getAttribute('viewBox');
+  hosts.forEach(h=>{
+    h.innerHTML='<svg viewBox="'+vb+'" preserveAspectRatio="xMidYMid meet" '
+      +'aria-hidden="true"><use href="#kc-logo"/></svg>';
+  });
 })();
 
 /* ============================================================
@@ -1081,11 +1157,12 @@ let active=-1;
    top and each card behind is nudged down and scaled a little. Advancing a
    chapter lifts the current card up and away. */
 const deck=document.getElementById('deck');
-const cardHTML=(s,cls='')=>
-  `<figure class="card ${cls}"><div class="ph"><img src="${s.img}" alt="" loading="lazy"></div>`
+const cardHTML=(s,cls='',eager=false)=>
+  `<figure class="card ${cls}"><div class="ph"><img src="${s.img}" alt=""`
+  +`${eager?' fetchpriority="high"':' loading="lazy"'}></div>`
   +`<figcaption>${s.cap}</figcaption></figure>`;
 deck.innerHTML = cardHTML(STORIES[0],'sizer')      // in-flow, invisible: sets deck height
-               + STORIES.map(s=>cardHTML(s)).join('');
+               + STORIES.map((s,i)=>cardHTML(s,'',i===0)).join('');
 const cards=[...deck.querySelectorAll('.card:not(.sizer)')];
 /* Fixed per-card jitter so the fan looks hand-laid but never reshuffles. */
 const TILT=cards.map((_,k)=>((k*37)%7-3)*0.8);
@@ -1225,18 +1302,92 @@ if(!isMobile && !reduced){
     m.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); }});
   });
 } else {
-  // mobile / reduced-motion: every chapter and story stacked, no wheel, no deck
+  /* Mobile / reduced-motion. The fan needs ~645px so it's out, but the WHEEL
+     survives as a wide shallow arc. Chapters swipe horizontally (one per
+     screen) and each holds a tappable photocard stack. */
+  const MSTEP=10;                                   // degrees between markers
   const host=document.querySelector('#journey .jcontent');
-  host.innerHTML=CHAPTERS.map(ch=>`
-    <div style="margin-bottom:10vh">
-      <div class="chapno">${ch.n}</div>
-      <h2>${ch.t}</h2>
-      ${ch.stories.map(s=>`
-        <div class="jrow" style="margin-bottom:5vh">
-          <div class="mphoto"><img src="${s.img}" alt="" loading="lazy"></div>
-          <p class="copy">${s.c}</p>
-        </div>`).join('')}
-    </div>`).join('');
+  host.innerHTML=`
+    <div class="marc"><div class="mwheel" id="mwheel"></div></div>
+    <div class="mswipe" id="mswipe">
+      ${CHAPTERS.map((ch,ci)=>`
+        <section class="mpanel" data-ci="${ci}">
+          <div class="chapno">${ch.n} · <span class="mcount">1 / ${ch.stories.length}</span></div>
+          <h2>${ch.t}</h2>
+          <div class="mstack" data-ci="${ci}" role="button" tabindex="0"
+               aria-label="${ch.t} — tap for the next photo">
+            ${ch.stories.map((s,si)=>
+              // first card of each chapter loads eagerly — otherwise swiping
+              // to a chapter lands on an empty grey frame while it fetches
+              `<figure class="card"><div class="ph"><img src="${s.img}" alt=""`
+              +`${si===0?' fetchpriority="'+(ci===0?'high':'low')+'"':' loading="lazy"'}></div>`
+              +`<figcaption>${s.cap}</figcaption></figure>`).join('')}
+          </div>
+          <p class="copy mcopy">${ch.stories[0].c}</p>
+          <div class="mdots">${ch.stories.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('')}</div>
+        </section>`).join('')}
+    </div>
+    <div class="mswipehint">SWIPE FOR THE NEXT CHAPTER</div>`;
+
+  // markers on the arc, same polar maths as the desktop wheel
+  const mwheel=document.getElementById('mwheel');
+  const mmk=CHAPTERS.map((ch,i)=>{
+    const rad=i*MSTEP*Math.PI/180;
+    const el=document.createElement('div');
+    el.className='mmk'+(i===0?' on':'');
+    el.style.left=(50+50*Math.sin(rad))+'%';
+    el.style.top =(50-50*Math.cos(rad))+'%';
+    el.innerHTML='<div class="d"></div><div class="t">'+ch.t+'</div>';
+    mwheel.appendChild(el); return el;
+  });
+
+  const mswipe=document.getElementById('mswipe');
+  let mActive=-1;
+  function setChapter(i){
+    if(i===mActive) return;
+    mActive=i;
+    mwheel.style.transform=`translateX(-50%) rotate(${-i*MSTEP}deg)`;
+    mmk.forEach((m,k)=>{
+      m.classList.toggle('on',k===i);
+      m.style.transform=`rotate(${i*MSTEP}deg)`;    // keep labels upright
+    });
+  }
+  setChapter(0);
+
+  /* Derive the active chapter straight from scroll position. No rAF throttle:
+     an rAF-gated `ticking` flag never resets if rAF is throttled (background
+     tab), jamming the handler permanently. setChapter() early-returns when the
+     chapter hasn't changed, so the DOM writes happen 5 times, not per event. */
+  mswipe.addEventListener('scroll',()=>{
+    if(!mswipe.clientWidth) return;
+    setChapter(Math.round(mswipe.scrollLeft/mswipe.clientWidth));
+  },{passive:true});
+
+  // tapping a marker swipes to that chapter
+  mmk.forEach((m,i)=>{ m.style.pointerEvents='auto'; m.style.cursor='pointer';
+    m.onclick=()=>mswipe.scrollTo({left:i*mswipe.clientWidth,behavior:'smooth'}); });
+
+  document.querySelectorAll('.mstack').forEach(stack=>{
+    const ci=+stack.dataset.ci, n=CHAPTERS[ci].stories.length;
+    const chap=stack.closest('.mpanel');
+    const cds=[...stack.children];
+    let at=0;
+    const paint=()=>{
+      cds.forEach((c,k)=>{
+        const d=(k-at+n)%n;                       // 0 = front, then wraps behind
+        c.style.transform=`translateY(${d*-7}px) scale(${1-d*0.035}) rotate(${(d%2?1:-1)*d*1.4}deg)`;
+        c.style.opacity = d>3 ? '0' : '1';
+        c.style.zIndex  = String(50-d);
+      });
+      chap.querySelector('.mcopy').textContent=CHAPTERS[ci].stories[at].c;
+      chap.querySelector('.mcount').textContent=(at+1)+' / '+n;
+      chap.querySelectorAll('.mdots i').forEach((d,i)=>d.classList.toggle('on',i===at));
+    };
+    const next=()=>{ at=(at+1)%n; paint(); };
+    stack.addEventListener('click',next);
+    stack.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();next();} });
+    paint();
+  });
 }
 
 /* ============================================================
@@ -1257,6 +1408,31 @@ tabrow.addEventListener('click',e=>{
 });
 addEventListener('load',()=>moveInd(tabrow.querySelector('.on')));
 addEventListener('resize',()=>moveInd(tabrow.querySelector('.on')));
+
+/* ============================================================
+   MOTIF — one palette + attire note per entourage group
+   ============================================================ */
+const MOTIF=[
+  {g:'PRINCIPAL SPONSORS', note:'Formal — barong tagalog and long gown.',
+   cols:[['#2A4300','OLIVE'],['#4A5B33','FERN'],['#D9D2C2','SAND']]},
+  {g:'SECONDARY SPONSORS', note:'Formal, one shade lighter than the principals.',
+   cols:[['#6B7F52','SAGE'],['#A8B894','MOSS'],['#E8E3D6','LINEN']]},
+  {g:'BEARERS &amp; FLOWER GIRLS', note:'Ivory and soft moss; comfort first.',
+   cols:[['#F2EFE8','IVORY'],['#C6D0B2','LEAF'],['#D9D2C2','SAND']]},
+  {g:'FOR THE LADIES', note:'Long dress in any shade below.',
+   cols:[['#6B7F52','SAGE'],['#A8B894','MOSS'],['#D9D2C2','SAND'],['#F2EFE8','IVORY']]},
+  {g:'FOR THE GENTLEMEN', note:'Barong tagalog or a dark suit; no white.',
+   cols:[['#14180D','CHARCOAL'],['#2A4300','OLIVE'],['#4A5B33','FERN']]},
+];
+document.getElementById('motifGroups').innerHTML = MOTIF.map(m=>`
+  <div class="motif-row">
+    <div class="sectitle">${m.g}</div>
+    <div class="swatches">
+      ${m.cols.map(([hex,name])=>
+        `<div class="sw"><i style="background:${hex}"></i><span>${name}</span></div>`).join('')}
+    </div>
+    <p class="motif-note">${m.note}</p>
+  </div>`).join('');
 
 /* ============================================================
    DAY-OF TIMELINE — vertical, in its own scroll area
@@ -1347,8 +1523,11 @@ function setSec(i){
   const c = light ? '#2A4300' : '#fff';
   document.getElementById('secnav').style.color=c;
   audioBtn.style.color=c;
-  // the logo goes near-black (not olive) on the wedding panel, matching its body text
-  document.getElementById('brand').style.color = light ? '#14180d' : '#fff';
+  // the logo goes near-black (not olive) on the wedding panel, matching its
+  // body text. Set the svg fill too, not just `color` — belt and braces so a
+  // single stuck inherited value can't leave the mark the wrong colour.
+  const brandEl = document.getElementById('brand');
+  brandEl.style.color = light ? '#14180d' : '#fff';   // svg inherits via fill:currentColor
 }
 navBtns.forEach(b=>{
   b.onclick=()=>{
@@ -1359,7 +1538,10 @@ navBtns.forEach(b=>{
     const t = to==='intro'   ? hST.start
             : to==='journey' ? hST.start+span*((P1+P2)/2)
             :                  hST.end-2;
-    window.scrollTo({top:t,behavior:'smooth'});
+    // Jump, don't smooth-scroll. Smooth from WEDDING back to INTRO scrubs the
+    // whole scroll timeline — you'd watch every chapter rewind on the way.
+    window.scrollTo({top:t,behavior:'auto'});
+    ScrollTrigger.update();
   };
 });
 addEventListener('scroll',()=>{
@@ -1374,7 +1556,31 @@ addEventListener('scroll',()=>{
   }
   setSec(scrollY < hST.start ? 0 : 2);
 },{passive:true});
+
+/* Browsers restore the previous scroll position on reload. Assuming section 0
+   at boot left the logo white on the cream wedding panel (invisible) until the
+   first scroll event. Sync to wherever we actually are, and again after load
+   once ScrollTrigger has measured. */
+function syncSecNow(){
+  if(hST && scrollY>=hST.start && scrollY<hST.end){ ScrollTrigger.update(); return; }
+  dispatchEvent(new Event('scroll'));
+}
 setSec(0);
+syncSecNow();
+
+/* ScrollTrigger sizes the pin from window.innerHeight. Refreshing while the
+   viewport reports 0 (background tab, hidden/collapsed pane) collapses the
+   whole timeline to zero length and it never recovers. Only refresh when the
+   viewport is real, and catch the moment it becomes real. */
+let refreshedOnce=false;
+function safeRefresh(){
+  if(innerWidth>0 && innerHeight>0 && window.ScrollTrigger){
+    ScrollTrigger.refresh(); refreshedOnce=true; syncSecNow();
+  }
+}
+addEventListener('load',safeRefresh);
+addEventListener('resize',()=>{ if(!refreshedOnce) safeRefresh(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && !refreshedOnce) safeRefresh(); });
 
 /* ============================================================
    RSVP — phonetic-ish typeahead over the mock list
